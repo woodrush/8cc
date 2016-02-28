@@ -955,9 +955,8 @@ static void emit_logand(Node *node) {
     emit("mov B, 0");
     emit("jeq %s, A, 0", end);
     emit_expr(node->right);
-    emit("mov B, 0");
-    emit("jeq %s, A, 0", end);
-    emit("mov B, 1");
+    emit("mov B, A");
+    emit("ne B, 0");
     emit_label(end);
     emit("mov A, B");
 }
@@ -969,9 +968,8 @@ static void emit_logor(Node *node) {
     emit("mov B, 1");
     emit("jne %s, A, 0", end);
     emit_expr(node->right);
-    emit("mov B, 1");
-    emit("jne %s, A, 0", end);
-    emit("mov B, 0");
+    emit("mov B, A");
+    emit("ne B, 0");
     emit_label(end);
     emit("mov A, B");
 }
