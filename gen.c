@@ -116,17 +116,17 @@ static void push(char *reg) {
     SAVE;
     assert(strcmp(reg, "D"));
     emit("mov D, SP");
-    emit("add D, -4");
+    emit("add D, -1");
     emit("store %s, D", reg);
     emit("mov SP, D");
-    stackpos += 4;
+    stackpos += 1;
 }
 
 static void pop(char *reg) {
     SAVE;
     emit("load %s, SP", reg);
-    emit("add SP, 4", reg);
-    stackpos -= 4;
+    emit("add SP, 1", reg);
+    stackpos -= 1;
     assert(stackpos >= 0);
 }
 
@@ -439,8 +439,11 @@ static void emit_ret(void) {
     if (is_main) {
         emit("exit");
     } else {
-        emit("leave");
-        emit("ret");
+        emit("mov SP, BP");
+        pop("A");
+        emit("mov BP, A");
+        pop("A");
+        emit("jmp A");
     }
 }
 
@@ -722,10 +725,16 @@ static void emit_func_call(Node *node) {
     } else if (!strcmp(node->fname, "getchar")) {
         emit("getc A");
     } else {
-        emit("call %s", node->fname);
+        char *end = make_label();
+        emit("mov A, %s", end);
+        push("A");
+        emit("jmp %s", node->fname);
+        emit_label(end);
+        emit("mov A, B");
+        stackpos -= 1;
     }
-    emit("add SP, %d", list_len(ints) * 4);
-    stackpos -= list_len(ints) * 4;
+    emit("add SP, %d", list_len(ints));
+    stackpos -= list_len(ints);
     assert(opos == stackpos);
 }
 
@@ -887,6 +896,7 @@ static void emit_return(Node *node) {
     if (node->retval) {
         emit_expr(node->retval);
         maybe_booleanize_retval(node->retval->ctype);
+        emit("mov B, A");
     }
     emit_ret();
 }
@@ -1277,34 +1287,18 @@ static int emit_regsave_area(void) {
 #endif
 
 static void push_func_params(List *params, int off) {
-    int ireg = 0;
-    int xreg = 0;
     int arg = 2;
     for (Iter *i = list_iter(params); !iter_end(i);) {
         Node *v = iter_next(i);
         if (is_flotype(v->ctype)) {
-            if (xreg >= 8) {
-                emit("mov %d(%%rbp), %%rax", arg++ * 8);
-                push("rax");
-            } else {
-                push_xmm(xreg++);
-            }
+            assert(0);
         } else {
-            if (ireg >= 6) {
-                if (v->ctype->type == CTYPE_BOOL) {
-                    emit("mov %d(%%rbp), %%al", arg++ * 8);
-                    emit("movzb %%al, %%eax");
-                } else {
-                    emit("mov %d(%%rbp), %%rax", arg++ * 8);
-                }
-                push("rax");
-            } else {
-                if (v->ctype->type == CTYPE_BOOL)
-                    emit("movzb %%%s, %%%s", SREGS[ireg], MREGS[ireg]);
-                push(REGS[ireg++]);
-            }
+            emit("mov B, BP");
+            emit("add B, %d", arg++);
+            emit("load A, B");
+            push("A");
         }
-        off -= 8;
+        off -= 1;
         v->loff = off;
     }
 }
@@ -1314,26 +1308,16 @@ static void emit_func_prologue(Node *func) {
     emit(".text");
     emit_noindent("%s:", func->fname);
 
-    push("SP");
+    push("BP");
+    emit("mov BP, SP");
     int off = 0;
-#if 0
-    emit("nop");
-    push("rbp");
-    emit("mov %%rsp, %%rbp");
-    int off = 0;
-    if (func->ctype->hasva) {
-        set_reg_nums(func->params);
-        off -= emit_regsave_area();
-    }
     push_func_params(func->params, off);
-    off -= list_len(func->params) * 8;
-#endif
+    off -= list_len(func->params);
 
     int localarea = 0;
     for (Iter *i = list_iter(func->localvars); !iter_end(i);) {
         Node *v = iter_next(i);
-        int size = align(v->ctype->size, 8);
-        assert(size % 8 == 0);
+        int size = v->ctype->size;
         off -= size;
         v->loff = off;
         localarea += size;
