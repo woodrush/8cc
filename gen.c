@@ -383,31 +383,31 @@ static void emit_comp(char *inst, Node *node) {
 static void emit_binop_int_arith(Node *node) {
     SAVE;
     char *op = NULL;
-    switch (node->type) {
-    case '+': op = "add"; break;
-    case '-': op = "sub"; break;
-    case '*': op = "imul"; break;
-    case '^': op = "xor"; break;
-    case OP_SAL: op = "sal"; break;
-    case OP_SAR: op = "sar"; break;
-    case OP_SHR: op = "shr"; break;
-    case '/': case '%': break;
-    default: error("invalid operator '%d'", node->type);
-    }
     emit_expr(node->left);
-    push("rax");
+    push("A");
     emit_expr(node->right);
-    emit("mov %%rax, %%rcx");
-    pop("rax");
-    if (node->type == '/' || node->type == '%') {
-        emit("cqto");
-        emit("idiv %%rcx");
-        if (node->type == '%')
-            emit("mov %%edx, %%eax");
-    } else if (node->type == OP_SAL || node->type == OP_SAR || node->type == OP_SHR) {
-        emit("%s %%cl, %%%s", op, get_int_reg(node->left->ctype, 'a'));
-    } else {
-        emit("%s %%rcx, %rax", op);
+    emit("mov B, A");
+    pop("A");
+    switch (node->type) {
+        case '+':
+            emit("add A, B");
+            break;
+        case '-':
+            emit("sub A, B");
+            break;
+        case '*':
+            error("TODO");
+            break;
+        case '^':
+        case OP_SAL:
+        case OP_SAR:
+        case OP_SHR:
+            assert(0);
+            break;
+        case '/': case '%':
+            error("TODO");
+            break;
+        default: error("invalid operator '%d'", node->type);
     }
 }
 
