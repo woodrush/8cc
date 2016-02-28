@@ -19,6 +19,7 @@ static int stackpos;
 static int numgp;
 static int numfp;
 static FILE *outputfp;
+static int is_main;
 
 static void emit_expr(Node *node);
 static void emit_decl_init(List *inits, int off);
@@ -447,8 +448,12 @@ static void emit_load_convert(Ctype *to, Ctype *from) {
 
 static void emit_ret(void) {
     SAVE;
-    emit("leave");
-    emit("ret");
+    if (is_main) {
+        emit("exit");
+    } else {
+        emit("leave");
+        emit("ret");
+    }
 }
 
 static void emit_binop(Node *node) {
@@ -724,10 +729,13 @@ static void emit_func_call(Node *node) {
 
     if (isptr) pop("r11");
 
-    if (isptr)
+    if (isptr) {
         emit("call *%%r11");
-    else
+    } else if (!strcmp(node->fname, "putchar")) {
+        emit("putc A");
+    } else {
         emit("call %s", node->fname);
+    }
     emit("add SP, %d", list_len(ints) * 4);
     stackpos -= list_len(ints) * 4;
     assert(opos == stackpos);
@@ -1357,9 +1365,11 @@ static void emit_func_prologue(Node *func) {
 void emit_toplevel(Node *v) {
     stackpos = 8;
     if (v->type == AST_FUNC) {
+        is_main = !strcmp(v->fname, "main");
         emit_func_prologue(v);
         emit_expr(v->body);
         emit_ret();
+        is_main = 0;
     } else if (v->type == AST_DECL) {
         emit_global_var(v);
     } else {
