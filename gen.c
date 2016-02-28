@@ -723,7 +723,11 @@ static void emit_func_call(Node *node) {
     } else if (!strcmp(node->fname, "putchar")) {
         emit("putc A");
     } else if (!strcmp(node->fname, "getchar")) {
+        char *end = make_label();
         emit("getc A");
+        emit("jne %s, A, 0", end);
+        emit("mov A, -1");
+        emit_label(end);
     } else {
         char *end = make_label();
         emit("mov A, %s", end);
