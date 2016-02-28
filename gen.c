@@ -733,6 +733,8 @@ static void emit_func_call(Node *node) {
         emit("call *%%r11");
     } else if (!strcmp(node->fname, "putchar")) {
         emit("putc A");
+    } else if (!strcmp(node->fname, "getchar")) {
+        emit("getc A");
     } else {
         emit("call %s", node->fname);
     }
