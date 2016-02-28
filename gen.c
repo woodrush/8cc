@@ -573,7 +573,7 @@ static void emit_literal_string(Node *node) {
         emit(".string \"%s\"", quote_cstring(node->sval));
         emit_noindent(".text");
     }
-    emit("lea %s(%%rip), %%rax", node->slabel);
+    emit("mov A, %s", node->slabel);
 }
 
 static void emit_lvar(Node *node) {
