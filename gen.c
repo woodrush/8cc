@@ -185,13 +185,13 @@ static void emit_lload(Ctype *ctype, char *base, int off) {
     if (ctype->type == CTYPE_ARRAY) {
         emit("lea %d(%%%s), %%rax", off, base);
     } else if (ctype->type == CTYPE_FLOAT) {
-        emit("movss %d(%%%s), %%xmm0", off, base);
+        assert(0);
     } else if (ctype->type == CTYPE_DOUBLE || ctype->type == CTYPE_LDOUBLE) {
-        emit("movsd %d(%%%s), %%xmm0", off, base);
+        assert(0);
     } else {
-        char *inst = get_load_inst(ctype);
-        emit("%s %d(%%%s), %%rax", inst, off, base);
-        maybe_emit_bitshift_load(ctype);
+        emit("mov B, BP");
+        emit("add B, %d", off);
+        emit("load A, B");
     }
 }
 
@@ -215,15 +215,13 @@ static void emit_gsave(char *varname, Ctype *ctype, int off) {
 static void emit_lsave(Ctype *ctype, int off) {
     SAVE;
     if (ctype->type == CTYPE_FLOAT) {
-        emit("movss %%xmm0, %d(%%rbp)", off);
+        assert(0);
     } else if (ctype->type == CTYPE_DOUBLE) {
-        emit("movsd %%xmm0, %d(%%rbp)", off);
+        assert(0);
     } else {
-        maybe_convert_bool(ctype);
-        char *reg = get_int_reg(ctype, 'a');
-        char *addr = format("%d(%%rbp)", off);
-        maybe_emit_bitshift_save(ctype, addr);
-        emit("mov %%%s, %s", reg, addr);
+        emit("mov B, BP");
+        emit("add B, %d", off);
+        emit("store A, B");
     }
 }
 
@@ -265,10 +263,12 @@ static void emit_pointer_arith(char type, Node *left, Node *right) {
 }
 
 static void emit_zero_filler(int start, int end) {
-    for (; start <= end - 4; start += 4)
-        emit("movl $0, %d(%%rbp)", start);
-    for (; start < end; start++)
-        emit("movb $0, %d(%%rbp)", start);
+    emit("mov A, 0");
+    emit("mov B, SP");
+    for (; start < end; start++) {
+        emit("store A, B");
+        emit("add B, 1");
+    }
 }
 
 static void ensure_lvar_init(Node *node) {
@@ -1359,7 +1359,7 @@ static void emit_func_prologue(Node *func) {
         localarea += size;
     }
     if (localarea) {
-        emit("sub $%d, %%rsp", localarea);
+        emit("sub SP, %d", localarea);
         stackpos += localarea;
     }
 }
