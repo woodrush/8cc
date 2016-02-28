@@ -149,8 +149,9 @@ static void emit_gload(Ctype *ctype, char *label, int off) {
             emit("lea %s(%%rip), %%rax", label);
         return;
     }
-    char *inst = get_load_inst(ctype);
-    emit("%s %s+%d(%%rip), %%rax", inst, label, off);
+    emit("mov B, %s", label);
+    emit("add B, %d", off);
+    emit("load A, B");
     maybe_emit_bitshift_load(ctype);
 }
 
@@ -188,10 +189,10 @@ static void emit_gsave(char *varname, Ctype *ctype, int off) {
     SAVE;
     assert(ctype->type != CTYPE_ARRAY);
     maybe_convert_bool(ctype);
-    char *reg = get_int_reg(ctype, 'a');
-    char *addr = format("%s+%d(%%rip)", varname, off);
-    maybe_emit_bitshift_save(ctype, addr);
-    emit("mov %%%s, %s", reg, addr);
+    //maybe_emit_bitshift_save(ctype, addr);
+    emit("mov B, %s", varname);
+    emit("add B, %d", off);
+    emit("store A, B");
 }
 
 static void emit_lsave(Ctype *ctype, int off) {
@@ -1172,8 +1173,6 @@ static void emit_data_int(List *inits, int size, int off, int depth) {
 static void emit_data(Node *v, int off, int depth) {
     SAVE;
     emit(".data %d", depth);
-    if (!v->declvar->ctype->isstatic)
-        emit_noindent(".global %s", v->declvar->varname);
     emit_noindent("%s:", v->declvar->varname);
     emit_data_int(v->declinit, v->declvar->ctype->size, off, depth);
 }
@@ -1181,8 +1180,6 @@ static void emit_data(Node *v, int off, int depth) {
 static void emit_bss(Node *v) {
     SAVE;
     emit(".data");
-    if (!v->declvar->ctype->isstatic)
-        emit(".global %s", v->declvar->varname);
     emit(".lcomm %s, %d", v->declvar->varname, v->declvar->ctype->size);
 }
 
