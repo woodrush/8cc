@@ -278,10 +278,10 @@ static Ctype *make_numtype(int type, bool sig) {
     if (type == CTYPE_VOID)         r->size = 0;
     else if (type == CTYPE_BOOL)    r->size = 1;
     else if (type == CTYPE_CHAR)    r->size = 1;
-    else if (type == CTYPE_SHORT)   r->size = 2;
-    else if (type == CTYPE_INT)     r->size = 4;
-    else if (type == CTYPE_LONG)    r->size = 8;
-    else if (type == CTYPE_LLONG)   r->size = 8;
+    else if (type == CTYPE_SHORT)   r->size = 1;
+    else if (type == CTYPE_INT)     r->size = 1;
+    else if (type == CTYPE_LONG)    r->size = 1;
+    else if (type == CTYPE_LLONG)   r->size = 1;
     else if (type == CTYPE_FLOAT)   r->size = 4;
     else if (type == CTYPE_DOUBLE)  r->size = 8;
     else if (type == CTYPE_LDOUBLE) r->size = 16;

@@ -357,27 +357,15 @@ static void emit_to_bool(Ctype *ctype) {
 static void emit_comp(char *inst, Node *node) {
     SAVE;
     if (is_flotype(node->left->ctype)) {
-        emit_expr(node->left);
-        push_xmm(0);
-        emit_expr(node->right);
-        pop_xmm(1);
-        if (node->left->ctype->type == CTYPE_FLOAT)
-            emit("ucomiss %%xmm0, %%xmm1");
-        else
-            emit("ucomisd %%xmm0, %%xmm1");
+        assert(0);
     } else {
         emit_expr(node->left);
-        push("rax");
+        push("A");
         emit_expr(node->right);
-        pop("rcx");
-        int type = node->left->ctype->type;
-        if (type == CTYPE_LONG || type == CTYPE_LLONG)
-          emit("cmp %%rax, %%rcx");
-        else
-          emit("cmp %%eax, %%ecx");
+        emit("mov B, A");
+        pop("A");
     }
-    emit("%s %%al", inst);
-    emit("movzb %%al, %%eax");
+    emit("%s A, B", inst);
 }
 
 static void emit_binop_int_arith(Node *node) {
@@ -463,12 +451,12 @@ static void emit_binop(Node *node) {
         return;
     }
     switch (node->type) {
-    case '<': emit_comp("setl", node); return;
-    case '>': emit_comp("setg", node); return;
-    case OP_EQ: emit_comp("sete", node); return;
-    case OP_GE: emit_comp("setge", node); return;
-    case OP_LE: emit_comp("setle", node); return;
-    case OP_NE: emit_comp("setne", node); return;
+    case '<': emit_comp("lt", node); return;
+    case '>': emit_comp("gt", node); return;
+    case OP_EQ: emit_comp("eq", node); return;
+    case OP_GE: emit_comp("ge", node); return;
+    case OP_LE: emit_comp("le", node); return;
+    case OP_NE: emit_comp("ne", node); return;
     }
     if (is_inttype(node->ctype))
         emit_binop_int_arith(node);
@@ -571,12 +559,11 @@ static void emit_decl_init(List *inits, int off) {
 static void emit_uminus(Node *node) {
     emit_expr(node->operand);
     if (is_flotype(node->ctype)) {
-        push_xmm(1);
-        emit("xorpd %%xmm1, %%xmm1");
-        emit("%s %%xmm1, %%xmm0", (node->ctype->type == CTYPE_DOUBLE ? "subsd" : "subss"));
-        pop_xmm(1);
+        assert(0);
     } else {
-        emit("neg %%rax");
+        emit("mov B, 0");
+        emit("sub B, A");
+        emit("mov A, B");
     }
 }
 
@@ -607,8 +594,7 @@ static void set_reg_nums(List *args) {
 }
 
 static void emit_je(char *label) {
-    emit("test %%rax, %%rax");
-    emit("je %s", label);
+    emit("jeq %s, A, 0", label);
 }
 
 static void emit_label(char *label) {
@@ -966,38 +952,34 @@ static void emit_logand(Node *node) {
     SAVE;
     char *end = make_label();
     emit_expr(node->left);
-    emit("test %%rax, %%rax");
-    emit("mov $0, %%rax");
-    emit("je %s", end);
+    emit("mov B, 0");
+    emit("jeq %s, A, 0", end);
     emit_expr(node->right);
-    emit("test %%rax, %%rax");
-    emit("mov $0, %%rax");
-    emit("je %s", end);
-    emit("mov $1, %%rax");
+    emit("mov B, 0");
+    emit("jeq %s, A, 0", end);
+    emit("mov B, 1");
     emit_label(end);
+    emit("mov A, B");
 }
 
 static void emit_logor(Node *node) {
     SAVE;
     char *end = make_label();
     emit_expr(node->left);
-    emit("test %%rax, %%rax");
-    emit("mov $1, %%rax");
-    emit("jne %s", end);
+    emit("mov B, 1");
+    emit("jne %s, A, 0", end);
     emit_expr(node->right);
-    emit("test %%rax, %%rax");
-    emit("mov $1, %%rax");
-    emit("jne %s", end);
-    emit("mov $0, %%rax");
+    emit("mov B, 1");
+    emit("jne %s, A, 0", end);
+    emit("mov B, 0");
     emit_label(end);
+    emit("mov A, B");
 }
 
 static void emit_lognot(Node *node) {
     SAVE;
     emit_expr(node->operand);
-    emit("cmp $0, %%rax");
-    emit("sete %%al");
-    emit("movzb %%al, %%eax");
+    emit("eq A, 0");
 }
 
 static void emit_bitand(Node *node) {
