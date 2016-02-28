@@ -432,31 +432,25 @@ static void emit_binop(Node *node) {
 }
 
 static void emit_save_literal(Node *node, Ctype *totype, int off) {
+    int v = node->ival;
     switch (totype->type) {
-    case CTYPE_BOOL:  emit("movb $%d, %d(%%rbp)", !!node->ival, off); break;
-    case CTYPE_CHAR:  emit("movb $%d, %d(%%rbp)", node->ival, off); break;
-    case CTYPE_SHORT: emit("movw $%d, %d(%%rbp)", node->ival, off); break;
-    case CTYPE_INT:   emit("movl $%d, %d(%%rbp)", node->ival, off); break;
+    case CTYPE_BOOL:
+        v = !!v;
+    case CTYPE_CHAR:
+    case CTYPE_SHORT:
+    case CTYPE_INT:
     case CTYPE_LONG:
     case CTYPE_LLONG:
     case CTYPE_PTR: {
-        unsigned long ival = node->ival;
-        emit("movl $%lu, %d(%%rbp)", ival & ((1L << 32) - 1), off);
-        emit("movl $%lu, %d(%%rbp)", ival >> 32, off + 4);
+        emit("mov B, BP");
+        emit("add B, %d", off);
+        emit("mov A, %d", v);
+        emit("store A, B");
         break;
     }
-    case CTYPE_FLOAT: {
-        float fval = node->fval;
-        int *p = (int *)&fval;
-        emit("movl $%u, %d(%%rbp)", *p, off);
-        break;
-    }
-    case CTYPE_DOUBLE: {
-        long *p = (long *)&node->fval;
-        emit("movl $%lu, %d(%%rbp)", *p & ((1L << 32) - 1), off);
-        emit("movl $%lu, %d(%%rbp)", *p >> 32, off + 4);
-        break;
-    }
+    case CTYPE_FLOAT:
+    case CTYPE_DOUBLE:
+        assert(0);
     default:
         error("internal error: <%s> <%s> <%d>", a2s(node), c2s(totype), off);
     }
