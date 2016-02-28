@@ -126,13 +126,15 @@ static void emit_toint(Ctype *ctype) {
 static void emit_lload(Ctype *ctype, char *base, int off) {
     SAVE;
     if (ctype->type == CTYPE_ARRAY) {
-        emit("lea %d(%%%s), %%rax", off, base);
+        emit("mov A, %s", base);
+        if (off)
+            emit("add A, %d", off);
     } else if (ctype->type == CTYPE_FLOAT) {
         assert(0);
     } else if (ctype->type == CTYPE_DOUBLE || ctype->type == CTYPE_LDOUBLE) {
         assert(0);
     } else {
-        emit("mov B, BP");
+        emit("mov B, %s", base);
         emit("add B, %d", off);
         emit("load A, B");
     }
@@ -169,18 +171,19 @@ static void emit_lsave(Ctype *ctype, int off) {
 
 static void emit_assign_deref_int(Ctype *ctype, int off) {
     SAVE;
-    emit("mov (%%rsp), %%rcx");
-    char *reg = get_int_reg(ctype, 'c');
+    emit("mov C, A");
+    emit("load A, SP");
+    emit("mov B, A");
+    emit("mov A, C");
     if (off)
-        emit("mov %%%s, %d(%%rax)", reg, off);
-    else
-        emit("mov %%%s, (%%rax)", reg);
-    pop("rax");
+        emit("add A, %d", off);
+    emit("store B, A");
+    pop("A");
 }
 
 static void emit_assign_deref(Node *var) {
     SAVE;
-    push("rax");
+    push("A");
     emit_expr(var->operand);
     emit_assign_deref_int(var->operand->ctype->ptr, 0);
 }
@@ -188,20 +191,21 @@ static void emit_assign_deref(Node *var) {
 static void emit_pointer_arith(char type, Node *left, Node *right) {
     SAVE;
     emit_expr(left);
-    push("rcx");
-    push("rax");
+    push("B");
+    push("A");
     emit_expr(right);
-    int size = left->ctype->ptr->size;
-    if (size > 1)
-        emit("imul $%d, %%rax", size);
-    emit("mov %%rax, %%rcx");
-    pop("rax");
+    assert(left->ctype->ptr->size == 1);
+    emit("mov B, A");
+    pop("A");
     switch (type) {
-    case '+': emit("add %%rcx, %%rax"); break;
-    case '-': emit("sub %%rcx, %%rax"); break;
+    case '+': emit("add A, B"); break;
+    case '-': emit("sub A, B"); break;
     default: error("invalid operator '%d'", type);
     }
-    pop("rcx");
+    emit("mov C, A");
+    pop("A");
+    emit("mov B, A");
+    emit("mov A, C");
 }
 
 static void emit_zero_filler(int start, int end) {
@@ -574,7 +578,7 @@ static void emit_literal_string(Node *node) {
 static void emit_lvar(Node *node) {
     SAVE;
     ensure_lvar_init(node);
-    emit_lload(node->ctype, "rbp", node->loff);
+    emit_lload(node->ctype, "BP", node->loff);
 }
 
 static void emit_gvar(Node *node) {
@@ -668,7 +672,7 @@ static void emit_conv(Node *node) {
 static void emit_deref(Node *node) {
     SAVE;
     emit_expr(node->operand);
-    emit_lload(node->operand->ctype->ptr, "rax", 0);
+    emit_lload(node->operand->ctype->ptr, "A", 0);
     emit_load_convert(node->ctype, node->operand->ctype->ptr);
 }
 
