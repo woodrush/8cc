@@ -83,17 +83,6 @@ static char *get_int_reg(Ctype *ctype, char r) {
     }
 }
 
-static char *get_load_inst(Ctype *ctype) {
-    switch (ctype->size) {
-    case 1: return "movsbq";
-    case 2: return "movswq";
-    case 4: return "movslq";
-    case 8: return "mov";
-    default:
-        error("Unknown data size: %s: %d", c2s(ctype), ctype->size);
-    }
-}
-
 static void push(char *reg) {
     SAVE;
     assert(strcmp(reg, "D"));
@@ -347,6 +336,19 @@ static void emit_comp(char *inst, Node *node) {
     emit("%s A, B", inst);
 }
 
+static void emit_label(char *label) {
+    emit("%s:", label);
+}
+
+static void emit_call(char *fname) {
+    char *end = make_label();
+    emit("mov A, %s", end);
+    push("A");
+    emit("jmp %s", fname);
+    emit_label(end);
+    emit("mov A, B");
+}
+
 static void emit_binop_int_arith(Node *node) {
     SAVE;
     emit_expr(node->left);
@@ -362,16 +364,24 @@ static void emit_binop_int_arith(Node *node) {
             emit("sub A, B");
             break;
         case '*':
-            error("TODO");
+        case '/':
+        case '%':
+            push("B");
+            push("A");
+            if (node->type == '*')
+                emit_call("__builtin_mul");
+            else if (node->type == '/')
+                emit_call("__builtin_div");
+            else if (node->type == '%')
+                emit_call("__builtin_mod");
+            emit("add SP, 3");
+            stackpos -= 3;
             break;
         case '^':
         case OP_SAL:
         case OP_SAR:
         case OP_SHR:
             assert(0);
-            break;
-        case '/': case '%':
-            error("TODO");
             break;
         default: error("invalid operator '%d'", node->type);
     }
@@ -529,25 +539,21 @@ static void emit_uminus(Node *node) {
 
 static void emit_pre_inc_dec(Node *node, char *op) {
     emit_expr(node->operand);
-    emit("%s $1, %%rax", op);
+    emit("%s A, 1", op);
     emit_store(node->operand);
 }
 
 static void emit_post_inc_dec(Node *node, char *op) {
     SAVE;
     emit_expr(node->operand);
-    push("rax");
-    emit("%s $1, %%rax", op);
+    push("A");
+    emit("%s A, 1", op);
     emit_store(node->operand);
-    pop("rax");
+    pop("A");
 }
 
 static void emit_je(char *label) {
     emit("jeq %s, A, 0", label);
-}
-
-static void emit_label(char *label) {
-    emit("%s:", label);
 }
 
 static void emit_jmp(char *label) {
