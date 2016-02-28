@@ -348,7 +348,7 @@ static void emit_binop_int_arith(Node *node) {
                 emit_call("__builtin_div");
             else if (node->type == '%')
                 emit_call("__builtin_mod");
-            emit("add SP, 3");
+            emit("add SP, 2");
             stackpos -= 3;
             break;
         case '^':
