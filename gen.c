@@ -7,9 +7,6 @@
 #include "8cc.h"
 #include "list.h"
 
-static char *REGS[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
-static char *SREGS[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
-static char *MREGS[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
 static int TAB = 8;
 static List *functions = &EMPTY_LIST;
 static char *lbreak;
@@ -95,21 +92,6 @@ static char *get_load_inst(Ctype *ctype) {
     default:
         error("Unknown data size: %s: %d", c2s(ctype), ctype->size);
     }
-}
-
-static void push_xmm(int reg) {
-    SAVE;
-    emit("sub $8, %%rsp");
-    emit("movsd %%xmm%d, (%%rsp)", reg);
-    stackpos += 8;
-}
-
-static void pop_xmm(int reg) {
-    SAVE;
-    emit("movsd (%%rsp), %%xmm%d", reg);
-    emit("add $8, %%rsp");
-    stackpos -= 8;
-    assert(stackpos >= 0);
 }
 
 static void push(char *reg) {
@@ -342,11 +324,7 @@ static void emit_store(Node *var) {
 static void emit_to_bool(Ctype *ctype) {
     SAVE;
     if (is_flotype(ctype)) {
-        push_xmm(1);
-        emit("xorpd %%xmm1, %%xmm1");
-        emit("%s %%xmm1, %%xmm0", (ctype->type == CTYPE_FLOAT) ? "ucomiss" : "ucomisd");
-        emit("setne %%al");
-        pop_xmm(1);
+        assert(0);
     } else {
         emit("cmp $0, %%rax");
         emit("setne %%al");
@@ -370,7 +348,6 @@ static void emit_comp(char *inst, Node *node) {
 
 static void emit_binop_int_arith(Node *node) {
     SAVE;
-    char *op = NULL;
     emit_expr(node->left);
     push("A");
     emit_expr(node->right);
@@ -400,22 +377,7 @@ static void emit_binop_int_arith(Node *node) {
 }
 
 static void emit_binop_float_arith(Node *node) {
-    SAVE;
-    char *op;
-    bool isdouble = (node->ctype->type == CTYPE_DOUBLE);
-    switch (node->type) {
-    case '+': op = (isdouble ? "addsd" : "addss"); break;
-    case '-': op = (isdouble ? "subsd" : "subss"); break;
-    case '*': op = (isdouble ? "mulsd" : "mulss"); break;
-    case '/': op = (isdouble ? "divsd" : "divss"); break;
-    default: error("invalid operator '%d'", node->type);
-    }
-    emit_expr(node->left);
-    push_xmm(0);
-    emit_expr(node->right);
-    emit("%s %%xmm0, %%xmm1", (isdouble ? "movsd" : "movss"));
-    pop_xmm(0);
-    emit("%s %%xmm1, %%xmm0", op);
+    assert(0);
 }
 
 static void emit_load_convert(Ctype *to, Ctype *from) {
@@ -585,17 +547,6 @@ static void emit_post_inc_dec(Node *node, char *op) {
     pop("rax");
 }
 
-static void set_reg_nums(List *args) {
-    numgp = numfp = 0;
-    for (Iter *i = list_iter(args); !iter_end(i);) {
-        Node *arg = iter_next(i);
-        if (is_flotype(arg->ctype))
-            numfp++;
-        else
-            numgp++;
-    }
-}
-
 static void emit_je(char *label) {
     emit("jeq %s, A, 0", label);
 }
@@ -679,20 +630,6 @@ static void emit_args(List *vals) {
         assert(!is_flotype(v->ctype));
         push("A");
     }
-}
-
-#if 0
-static void pop_int_args(int nints) {
-    SAVE;
-    for (int i = nints - 1; i >= 0; i--)
-        pop(REGS[i]);
-}
-#endif
-
-static void pop_float_args(int nfloats) {
-    SAVE;
-    for (int i = nfloats - 1; i >= 0; i--)
-        pop_xmm(i);
 }
 
 static void maybe_booleanize_retval(Ctype *ctype) {
@@ -1262,33 +1199,6 @@ static void emit_global_var(Node *v) {
     else
         emit_bss(v);
 }
-
-static int align(int n, int m) {
-    int rem = n % m;
-    return (rem == 0) ? n : n - rem + m;
-}
-
-#if 0
-static int emit_regsave_area(void) {
-    int pos = -REGAREA_SIZE;
-    emit("mov %%rdi, %d(%%rsp)", pos);
-    emit("mov %%rsi, %d(%%rsp)", (pos += 8));
-    emit("mov %%rdx, %d(%%rsp)", (pos += 8));
-    emit("mov %%rcx, %d(%%rsp)", (pos += 8));
-    emit("mov %%r8, %d(%%rsp)", (pos += 8));
-    emit("mov %%r9, %d(%%rsp)", pos + 8);
-    char *end = make_label();
-    for (int i = 0; i < 16; i++) {
-        emit("test %%al, %%al");
-        emit("jz %s", end);
-        emit("movsd %%xmm%d, %d(%%rsp)", i, (pos += 16));
-        emit("sub $1, %%al");
-    }
-    emit_label(end);
-    emit("sub $%d, %%rsp", REGAREA_SIZE);
-    return REGAREA_SIZE;
-}
-#endif
 
 static void push_func_params(List *params, int off) {
     int arg = 2;
