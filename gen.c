@@ -71,18 +71,6 @@ static void emitf(int line, char *fmt, ...) {
     fprintf(outputfp, "%*c %s:%d\n", space, '#', get_caller_list(), line);
 }
 
-static char *get_int_reg(Ctype *ctype, char r) {
-    assert(r == 'a' || r == 'c');
-    switch (ctype->size) {
-    case 1: return (r == 'a') ? "al" : "cl";
-    case 2: return (r == 'a') ? "ax" : "cx";
-    case 4: return (r == 'a') ? "eax" : "ecx";
-    case 8: return (r == 'a') ? "rax" : "rcx";
-    default:
-        error("Unknown data size: %s: %d", c2s(ctype), ctype->size);
-    }
-}
-
 static void push(char *reg) {
     SAVE;
     assert(strcmp(reg, "D"));
