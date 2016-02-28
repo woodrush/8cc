@@ -104,10 +104,9 @@ static void pop(char *reg) {
 static void emit_gload(Ctype *ctype, char *label, int off) {
     SAVE;
     if (ctype->type == CTYPE_ARRAY) {
+        emit("mov A, %s", label);
         if (off)
-            emit("lea %s+%d(%%rip), %%rax", label, off);
-        else
-            emit("lea %s(%%rip), %%rax", label);
+            emit("add A, %d", off);
         return;
     }
     emit("mov B, %s", label);
