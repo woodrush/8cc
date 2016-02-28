@@ -227,7 +227,7 @@ static void emit_assign_struct_ref(Node *struc, Ctype *field, int off) {
         emit_assign_struct_ref(struc->struc, field, off + struc->ctype->offset);
         break;
     case AST_DEREF:
-        push("rax");
+        push("A");
         emit_expr(struc->operand);
         emit_assign_deref_int(field, field->offset + off);
         break;
@@ -437,7 +437,7 @@ static void emit_addr(Node *node) {
         emit("add A, %d", node->loff);
         break;
     case AST_GVAR:
-        emit("lea %s(%%rip), %%rax", node->glabel);
+        emit("mov A, %s", node->glabel);
         break;
     case AST_DEREF:
         emit_expr(node->operand);
