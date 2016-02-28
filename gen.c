@@ -645,7 +645,7 @@ static void emit_func_call(Node *node) {
         emit_expr(node->fptr);
         push("rax");
     }
-    emit_args(ints);
+    emit_args(list_reverse(ints));
 
     if (isptr) pop("r11");
 
