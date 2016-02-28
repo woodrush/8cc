@@ -113,14 +113,19 @@ static void pop_xmm(int reg) {
 
 static void push(char *reg) {
     SAVE;
-    emit("push %%%s", reg);
-    stackpos += 8;
+    assert(strcmp(reg, "D"));
+    emit("mov D, SP");
+    emit("add D, -4");
+    emit("store %s, D", reg);
+    emit("mov SP, D");
+    stackpos += 4;
 }
 
 static void pop(char *reg) {
     SAVE;
-    emit("pop %%%s", reg);
-    stackpos -= 8;
+    emit("load %s, SP", reg);
+    emit("add SP, 4", reg);
+    stackpos -= 4;
     assert(stackpos >= 0);
 }
 
@@ -614,41 +619,23 @@ static void emit_literal(Node *node) {
     switch (node->ctype->type) {
     case CTYPE_BOOL:
     case CTYPE_CHAR:
-        emit("mov $%d, %%rax", node->ival);
+        emit("mov A, %d", node->ival);
         break;
     case CTYPE_INT:
-        emit("mov $%d, %%rax", node->ival);
+        emit("mov A, %d", node->ival);
         break;
     case CTYPE_LONG:
     case CTYPE_LLONG: {
-        emit("mov $%lu, %%rax", node->ival);
+        emit("mov A, %lu", node->ival);
         break;
     }
     case CTYPE_FLOAT: {
-        if (!node->flabel) {
-            node->flabel = make_label();
-            float fval = node->fval;
-            int *p = (int *)&fval;
-            emit_noindent(".data");
-            emit_label(node->flabel);
-            emit(".long %d", *p);
-            emit_noindent(".text");
-        }
-        emit("movss %s(%%rip), %%xmm0", node->flabel);
+        assert(0);
         break;
     }
     case CTYPE_DOUBLE:
     case CTYPE_LDOUBLE: {
-        if (!node->flabel) {
-            node->flabel = make_label();
-            int *fval = (int *)&node->fval;
-            emit_noindent(".data");
-            emit_label(node->flabel);
-            emit(".long %d", fval[0]);
-            emit(".long %d", fval[1]);
-            emit_noindent(".text");
-        }
-        emit("movsd %s(%%rip), %%xmm0", node->flabel);
+        assert(0);
         break;
     }
     default:
@@ -679,36 +666,14 @@ static void emit_gvar(Node *node) {
     emit_gload(node->ctype, node->glabel, 0);
 }
 
-static void classify_args(List *ints, List *floats, List *rest, List *args) {
+static void classify_args(List *ints, List *args) {
     SAVE;
-    int ireg = 0, xreg = 0;
-    int imax = 6, xmax = 8;
     Iter *iter = list_iter(args);
     while (!iter_end(iter)) {
         Node *v = iter_next(iter);
-        if (is_flotype(v->ctype))
-            list_push((xreg++ < xmax) ? floats : rest, v);
-        else
-            list_push((ireg++ < imax) ? ints : rest, v);
+        assert(!is_flotype(v->ctype));
+        list_push(ints, v);
     }
-}
-
-static void save_arg_regs(int nints, int nfloats) {
-    SAVE;
-    assert(nints <= 6);
-    assert(nfloats <= 8);
-    for (int i = 0; i < nints; i++)
-        push(REGS[i]);
-    for (int i = 1; i < nfloats; i++)
-        push_xmm(i);
-}
-
-static void restore_arg_regs(int nints, int nfloats) {
-    SAVE;
-    for (int i = nfloats - 1; i > 0; i--)
-        pop_xmm(i);
-    for (int i = nints - 1; i >= 0; i--)
-        pop(REGS[i]);
 }
 
 static void emit_args(List *vals) {
@@ -717,18 +682,18 @@ static void emit_args(List *vals) {
     while (!iter_end(iter)) {
         Node *v = iter_next(iter);
         emit_expr(v);
-        if (is_flotype(v->ctype))
-            push_xmm(0);
-        else
-            push("rax");
+        assert(!is_flotype(v->ctype));
+        push("A");
     }
 }
 
+#if 0
 static void pop_int_args(int nints) {
     SAVE;
     for (int i = nints - 1; i >= 0; i--)
         pop(REGS[i]);
 }
+#endif
 
 static void pop_float_args(int nfloats) {
     SAVE;
@@ -746,48 +711,25 @@ static void emit_func_call(Node *node) {
     SAVE;
     int opos = stackpos;
     bool isptr = (node->type == AST_FUNCPTR_CALL);
-    Ctype *ftype = isptr ? node->fptr->ctype->ptr : node->ftype;
 
     List *ints = make_list();
-    List *floats = make_list();
-    List *rest = make_list();
-    classify_args(ints, floats, rest, node->args);
-    save_arg_regs(list_len(ints), list_len(floats));
 
-    bool padding = stackpos % 16;
-    if (padding) {
-        emit("sub $8, %%rsp");
-        stackpos += 8;
-    }
+    classify_args(ints, node->args);
 
-    emit_args(list_reverse(rest));
     if (isptr) {
         emit_expr(node->fptr);
         push("rax");
     }
     emit_args(ints);
-    emit_args(floats);
-    pop_float_args(list_len(floats));
-    pop_int_args(list_len(ints));
 
     if (isptr) pop("r11");
-    if (ftype->hasva)
-        emit("mov $%d, %%eax", list_len(floats));
 
     if (isptr)
         emit("call *%%r11");
     else
         emit("call %s", node->fname);
-    maybe_booleanize_retval(node->ctype);
-    if (list_len(rest) > 0) {
-        emit("add $%d, %%rsp", list_len(rest) * 8);
-        stackpos -= list_len(rest) * 8;
-    }
-    if (padding) {
-        emit("add $8, %%rsp");
-        stackpos -= 8;
-    }
-    restore_arg_regs(list_len(ints), list_len(floats));
+    emit("add SP, %d", list_len(ints) * 4);
+    stackpos -= list_len(ints) * 4;
     assert(opos == stackpos);
 }
 
@@ -1322,6 +1264,7 @@ static int align(int n, int m) {
     return (rem == 0) ? n : n - rem + m;
 }
 
+#if 0
 static int emit_regsave_area(void) {
     int pos = -REGAREA_SIZE;
     emit("mov %%rdi, %d(%%rsp)", pos);
@@ -1341,6 +1284,7 @@ static int emit_regsave_area(void) {
     emit("sub $%d, %%rsp", REGAREA_SIZE);
     return REGAREA_SIZE;
 }
+#endif
 
 static void push_func_params(List *params, int off) {
     int ireg = 0;
@@ -1378,9 +1322,11 @@ static void push_func_params(List *params, int off) {
 static void emit_func_prologue(Node *func) {
     SAVE;
     emit(".text");
-    if (!func->ctype->isstatic)
-        emit_noindent(".global %s", func->fname);
     emit_noindent("%s:", func->fname);
+
+    push("SP");
+    int off = 0;
+#if 0
     emit("nop");
     push("rbp");
     emit("mov %%rsp, %%rbp");
@@ -1391,6 +1337,7 @@ static void emit_func_prologue(Node *func) {
     }
     push_func_params(func->params, off);
     off -= list_len(func->params) * 8;
+#endif
 
     int localarea = 0;
     for (Iter *i = list_iter(func->localvars); !iter_end(i);) {
