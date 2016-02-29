@@ -241,7 +241,7 @@ static void emit_load_struct_ref(Node *struc, Ctype *field, int off) {
     switch (struc->type) {
     case AST_LVAR:
         ensure_lvar_init(struc);
-        emit_lload(field, "rbp", struc->loff + field->offset + off);
+        emit_lload(field, "BP", struc->loff + field->offset + off);
         break;
     case AST_GVAR:
         emit_gload(field, struc->varname, field->offset + off);
