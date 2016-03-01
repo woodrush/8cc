@@ -452,7 +452,7 @@ static void emit_addr(Node *node) {
         break;
     case AST_STRUCT_REF:
         emit_addr(node->struc);
-        emit("add $%d, %%rax", node->ctype->offset);
+        emit("add A, %d", node->ctype->offset);
         break;
     default:
         error("internal error: %s", a2s(node));
