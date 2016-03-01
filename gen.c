@@ -1169,20 +1169,13 @@ static void emit_global_var(Node *v) {
         emit_bss(v);
 }
 
-static void push_func_params(List *params, int off) {
+static void assign_func_param_offsets(List *params, int off) {
     int arg = 2;
     for (Iter *i = list_iter(params); !iter_end(i);) {
         Node *v = iter_next(i);
-        if (is_flotype(v->ctype)) {
+        if (is_flotype(v->ctype))
             assert(0);
-        } else {
-            emit("mov B, BP");
-            emit("add B, %d", arg++);
-            emit("load A, B");
-            push("A");
-        }
-        off -= 1;
-        v->loff = off;
+        v->loff = arg++;
     }
 }
 
@@ -1194,8 +1187,7 @@ static void emit_func_prologue(Node *func) {
     push("BP");
     emit("mov BP, SP");
     int off = 0;
-    push_func_params(func->params, off);
-    off -= list_len(func->params);
+    assign_func_param_offsets(func->params, off);
 
     int localarea = 0;
     for (Iter *i = list_iter(func->localvars); !iter_end(i);) {
