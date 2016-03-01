@@ -307,7 +307,7 @@ static void emit_label(char *label) {
     emit("%s:", label);
 }
 
-static void emit_call(char *fname) {
+static void emit_call_builtin(char *fname) {
     char *end = make_label();
     emit("mov A, %s", end);
     push("A");
@@ -336,11 +336,11 @@ static void emit_binop_int_arith(Node *node) {
             push("B");
             push("A");
             if (node->type == '*')
-                emit_call("__builtin_mul");
+                emit_call_builtin("__builtin_mul");
             else if (node->type == '/')
-                emit_call("__builtin_div");
+                emit_call_builtin("__builtin_div");
             else if (node->type == '%')
-                emit_call("__builtin_mod");
+                emit_call_builtin("__builtin_mod");
             emit("add SP, 2");
             stackpos -= 3;
             break;
@@ -610,25 +610,36 @@ static void maybe_booleanize_retval(Ctype *ctype) {
     }
 }
 
+static void emit_call(Node *node) {
+    bool isptr = (node->type == AST_FUNCPTR_CALL);
+    char *end = make_label();
+    if (isptr) {
+        emit_expr(node->fptr);
+        emit("mov C, A");
+    }
+    emit("mov A, %s", end);
+    push("A");
+    if (isptr)
+        emit("jmp C");
+    else
+        emit("jmp %s", node->fname);
+    emit_label(end);
+    emit("mov A, B");
+    stackpos -= 1;
+}
+
 static void emit_func_call(Node *node) {
     SAVE;
     int opos = stackpos;
-    bool isptr = (node->type == AST_FUNCPTR_CALL);
 
     List *ints = make_list();
 
     classify_args(ints, node->args);
 
-    if (isptr) {
-        emit_expr(node->fptr);
-        push("rax");
-    }
     emit_args(list_reverse(ints));
 
-    if (isptr) pop("r11");
-
-    if (isptr) {
-        emit("call *%%r11");
+    if (!node->fname) {
+        emit_call(node);
     } else if (!strcmp(node->fname, "exit")) {
         emit("exit");
     } else if (!strcmp(node->fname, "putchar")) {
@@ -640,13 +651,7 @@ static void emit_func_call(Node *node) {
         emit("mov A, -1");
         emit_label(end);
     } else {
-        char *end = make_label();
-        emit("mov A, %s", end);
-        push("A");
-        emit("jmp %s", node->fname);
-        emit_label(end);
-        emit("mov A, B");
-        stackpos -= 1;
+        emit_call(node);
     }
     if (list_len(ints))
         emit("add SP, %d", list_len(ints));
