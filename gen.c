@@ -773,13 +773,11 @@ static void emit_case(Node *node) {
     emit_jmp(skip);
     emit_label(lswitch);
     lswitch = make_label();
-    emit("cmp $%d, %%eax", node->casebeg);
     if (node->casebeg == node->caseend) {
-        emit("jne %s", lswitch);
+        emit("jne %s, A, %d", lswitch, node->casebeg);
     } else {
-        emit("jl %s", lswitch);
-        emit("cmp $%d, %%eax", node->caseend);
-        emit("jg %s", lswitch);
+        emit("jl %s, A, %d", lswitch, node->casebeg);
+        emit("jg %s, A, %d", lswitch, node->caseend);
     }
     emit_label(skip);
 }
