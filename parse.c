@@ -290,7 +290,7 @@ static Ctype *make_numtype(int type, bool sig) {
 }
 
 static Ctype* make_ptr_type(Ctype *ctype) {
-    return make_type(&(Ctype){ CTYPE_PTR, .ptr = ctype, .size = 8 });
+    return make_type(&(Ctype){ CTYPE_PTR, .ptr = ctype, .size = 1 });
 }
 
 static Ctype* make_array_type(Ctype *ctype, int len) {

@@ -181,7 +181,9 @@ static void emit_pointer_arith(char type, Node *left, Node *right) {
     push("B");
     push("A");
     emit_expr(right);
-    assert(left->ctype->ptr->size == 1);
+    assert(left->ctype->ptr->size <= 2);
+    if (left->ctype->ptr->size == 2)
+        emit("add A, A");
     emit("mov B, A");
     pop("A");
     switch (type) {
