@@ -98,7 +98,8 @@ static void emit_gload(Ctype *ctype, char *label, int off) {
         return;
     }
     emit("mov B, %s", label);
-    emit("add B, %d", off);
+    if (off)
+        emit("add B, %d", off);
     emit("load A, B");
 }
 
@@ -122,7 +123,8 @@ static void emit_lload(Ctype *ctype, char *base, int off) {
         assert(0);
     } else {
         emit("mov B, %s", base);
-        emit("add B, %d", off);
+        if (off)
+            emit("add B, %d", off);
         emit("load A, B");
     }
 }
@@ -139,7 +141,8 @@ static void emit_gsave(char *varname, Ctype *ctype, int off) {
     assert(ctype->type != CTYPE_ARRAY);
     maybe_convert_bool(ctype);
     emit("mov B, %s", varname);
-    emit("add B, %d", off);
+    if (off)
+        emit("add B, %d", off);
     emit("store A, B");
 }
 
@@ -151,7 +154,8 @@ static void emit_lsave(Ctype *ctype, int off) {
         assert(0);
     } else {
         emit("mov B, BP");
-        emit("add B, %d", off);
+        if (off)
+            emit("add B, %d", off);
         emit("store A, B");
     }
 }
@@ -416,7 +420,8 @@ static void emit_save_literal(Node *node, Ctype *totype, int off) {
     case CTYPE_LLONG:
     case CTYPE_PTR: {
         emit("mov B, BP");
-        emit("add B, %d", off);
+        if (off)
+            emit("add B, %d", off);
         emit("mov A, %d", v);
         emit("store A, B");
         break;
@@ -434,7 +439,8 @@ static void emit_addr(Node *node) {
     case AST_LVAR:
         ensure_lvar_init(node);
         emit("mov A, BP");
-        emit("add A, %d", node->loff);
+        if (node->loff)
+            emit("add A, %d", node->loff);
         break;
     case AST_GVAR:
         emit("mov A, %s", node->glabel);
@@ -640,7 +646,8 @@ static void emit_func_call(Node *node) {
         emit("mov A, B");
         stackpos -= 1;
     }
-    emit("add SP, %d", list_len(ints));
+    if (list_len(ints))
+        emit("add SP, %d", list_len(ints));
     stackpos -= list_len(ints);
     assert(opos == stackpos);
 }
