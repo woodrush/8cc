@@ -1026,9 +1026,7 @@ static void emit_expr(Node *node) {
 
 static void emit_zero(int size) {
     SAVE;
-    for (; size >= 8; size -= 8) emit(".quad 0");
-    for (; size >= 4; size -= 4) emit(".long 0");
-    for (; size > 0; size--)     emit(".byte 0");
+    for (; size > 0; size--)     emit(".long 0");
 }
 
 static void emit_padding(Node *node, int off) {
@@ -1046,11 +1044,11 @@ static void emit_data_addr(Node *operand, int depth) {
         emit_label(label);
         emit_data_int(operand->lvarinit, operand->ctype->size, 0, depth + 1);
         emit(".data %d", depth);
-        emit(".quad %s", label);
+        emit(".long %s", label);
         return;
     }
     case AST_GVAR:
-        emit(".quad %s", operand->varname);
+        emit(".long %s", operand->varname);
         return;
     default:
         error("internal error");
@@ -1063,7 +1061,7 @@ static void emit_data_charptr(char *s, int depth) {
     emit_label(label);
     emit(".string \"%s\"", quote_cstring(s));
     emit(".data %d", depth);
-    emit(".quad %s", label);
+    emit(".long %s", label);
 }
 
 static void emit_data_primtype(Ctype *ctype, Node *val) {
@@ -1074,27 +1072,18 @@ static void emit_data_primtype(Ctype *ctype, Node *val) {
         break;
     }
     case CTYPE_DOUBLE:
-        emit(".quad %ld", *(long *)&val->fval);
+        assert(0);
         break;
     case CTYPE_BOOL:
-        emit(".byte %d", !!eval_intexpr(val));
+        emit(".long %d", !!eval_intexpr(val));
         break;
     case CTYPE_CHAR:
-        emit(".byte %d", eval_intexpr(val));
-        break;
-    case CTYPE_SHORT:
-        emit(".short %d", eval_intexpr(val));
-        break;
     case CTYPE_INT:
-        emit(".long %d", eval_intexpr(val));
-        break;
+    case CTYPE_SHORT:
     case CTYPE_LONG:
     case CTYPE_LLONG:
     case CTYPE_PTR:
-        if (val->type == AST_GVAR)
-            emit(".quad %s", val->varname);
-        else
-            emit(".quad %d", eval_intexpr(val));
+        emit(".long %d", eval_intexpr(val));
         break;
     default:
         error("don't know how to handle\n  <%s>\n  <%s>", c2s(ctype), a2s(val));
