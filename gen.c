@@ -785,8 +785,8 @@ static void emit_case(Node *node) {
     if (node->casebeg == node->caseend) {
         emit("jne %s, A, %d", lswitch, node->casebeg);
     } else {
-        emit("jl %s, A, %d", lswitch, node->casebeg);
-        emit("jg %s, A, %d", lswitch, node->caseend);
+        emit("jlt %s, A, %d", lswitch, node->casebeg);
+        emit("jgt %s, A, %d", lswitch, node->caseend);
     }
     emit_label(skip);
 }
