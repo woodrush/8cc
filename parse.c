@@ -535,7 +535,7 @@ int eval_intexpr(Node *node) {
             return node->ival;
         error("Integer expression expected, but got %s", a2s(node));
     case '!': return !eval_intexpr(node->operand);
-    case '~': return ~eval_intexpr(node->operand);
+    case '~': assert(0);
     case OP_UMINUS: return -eval_intexpr(node->operand);
     case OP_CAST: return eval_intexpr(node->operand);
     case AST_CONV: return eval_intexpr(node->operand);
