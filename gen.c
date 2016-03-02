@@ -1072,8 +1072,7 @@ static void emit_data_charptr(char *s, int depth) {
 static void emit_data_primtype(Ctype *ctype, Node *val) {
     switch (ctype->type) {
     case CTYPE_FLOAT: {
-        float v = val->fval;
-        emit(".long %d", *(int *)&v);
+        assert(0);
         break;
     }
     case CTYPE_DOUBLE:

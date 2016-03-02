@@ -54,6 +54,9 @@ static char *replace_suffix(char *filename, char suffix) {
 }
 
 static FILE *open_output_file(void) {
+#ifdef __bfs__
+    return stdout;
+#else
     if (!outputfile) {
         if (dontasm) {
             outputfile = replace_suffix(inputfile, 's');
@@ -70,6 +73,7 @@ static FILE *open_output_file(void) {
     if (!fp)
         perror("fopen");
     return fp;
+#endif
 }
 
 static void parse_debug_arg(char *s) {
@@ -83,6 +87,7 @@ static void parse_debug_arg(char *s) {
     }
 }
 
+#ifndef __bfs__
 static void parseopt(int argc, char **argv) {
     cppdefs = make_string();
     for (;;) {
@@ -133,6 +138,7 @@ static void parseopt(int argc, char **argv) {
         error("One of -a, -c, -E or -S must be specified");
     inputfile = argv[optind];
 }
+#endif
 
 static void preprocess(void) {
     for (;;) {
@@ -155,7 +161,11 @@ int main(int argc, char **argv) {
         perror("atexit");
     cpp_init();
     parse_init();
+#ifndef __bfs__
     parseopt(argc, argv);
+#else
+    dontasm = true;
+#endif
     if (string_len(cppdefs) > 0)
         cpp_eval(get_cstring(cppdefs));
     lex_init(inputfile);
@@ -177,6 +187,7 @@ int main(int argc, char **argv) {
 
     close_output_file();
 
+#ifndef __bfs__
     if (!wantast && !dontasm) {
         char *objfile = replace_suffix(inputfile, 'o');
         pid_t pid = fork();
@@ -190,5 +201,6 @@ int main(int argc, char **argv) {
         if (status < 0)
             error("as failed");
     }
+#endif
     return 0;
 }

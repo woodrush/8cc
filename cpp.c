@@ -49,11 +49,15 @@ static Token *read_expand(void);
  */
 
 void cpp_eval(char *buf) {
+#ifdef __bfs__
+    assert(0);
+#else
     FILE *fp = fmemopen(buf, strlen(buf), "r");
     set_input_file("(eval)", NULL, fp);
     List *toplevels = read_toplevels();
     for (Iter *i = list_iter(toplevels); !iter_end(i);)
         emit_toplevel(iter_next(i));
+#endif
 }
 
 /*----------------------------------------------------------------------
@@ -662,6 +666,7 @@ static char *read_cpp_header_name(bool *std) {
     return join_tokens(tokens, false);
 }
 
+#ifndef __bfs__
 static bool try_include(char *dir, char *filename) {
     char *path = format("%s/%s", dir, filename);
     FILE *fp = fopen(path, "r");
@@ -670,8 +675,12 @@ static bool try_include(char *dir, char *filename) {
     push_input_file(path, path, fp);
     return true;
 }
+#endif
 
 static void read_include(void) {
+#ifdef __bfs__
+    assert(0);
+#else
     bool std;
     char *filename = read_cpp_header_name(&std);
     expect_newline();
@@ -689,6 +698,7 @@ static void read_include(void) {
             return;
     }
     error("Cannot find header file: %s", filename);
+#endif
 }
 
 /*----------------------------------------------------------------------
@@ -745,6 +755,7 @@ static void read_directive(void) {
  * Special macros
  */
 
+#ifndef __bfs__
 static struct tm *gettime(void) {
     if (current_time)
         return current_time;
@@ -753,22 +764,31 @@ static struct tm *gettime(void) {
     localtime_r(&timet, current_time);
     return current_time;
 }
+#endif
 
 static void handle_date_macro(Token *tmpl) {
+#ifdef __bfs__
+    assert(0);
+#else
     Token *tok = copy_token(tmpl);
     tok->type = TSTRING;
     char *month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
     struct tm *now = gettime();
     tok->sval = format("%s %02d %04d", month[now->tm_mon], now->tm_mday, 1900 + now->tm_year);
     unget_token(tok);
+#endif
 }
 
 static void handle_time_macro(Token *tmpl) {
+#ifdef __bfs__
+    assert(0);
+#else
     Token *tok = copy_token(tmpl);
     tok->type = TSTRING;
     struct tm *now = gettime();
     tok->sval = format("%02d:%02d:%02d", now->tm_hour, now->tm_min, now->tm_sec);
     unget_token(tok);
+#endif
 }
 
 static void handle_file_macro(Token *tmpl) {
@@ -804,7 +824,12 @@ static char *drop_last_slash(char *s) {
     char *r = format("%s", s);
     char *p = r + strlen(r) - 1;
     if (*p == '/')
+#ifdef __bfs__
+        // TODO: 8cc cannot preprocess this properly
+        *p = 0;
+#else
         *p = '\0';
+#endif
     return r;
 }
 

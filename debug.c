@@ -91,7 +91,12 @@ static void a2s_int(String *buf, Node *node) {
         case CTYPE_CHAR:
             if (node->ival == '\n')      string_appendf(buf, "'\n'");
             else if (node->ival == '\\') string_appendf(buf, "'\\\\'");
+#ifdef __bfs__
+            // TODO: 8cc cannot preprocess this properly
+            else if (node->ival == 0) string_appendf(buf, "'\\0'");
+#else
             else if (node->ival == '\0') string_appendf(buf, "'\\0'");
+#endif
             else string_appendf(buf, "'%c'", node->ival);
             break;
         case CTYPE_INT:
@@ -102,7 +107,7 @@ static void a2s_int(String *buf, Node *node) {
             break;
         case CTYPE_FLOAT:
         case CTYPE_DOUBLE:
-            string_appendf(buf, "%f", node->fval);
+            assert(0);
             break;
         default:
             error("internal error");

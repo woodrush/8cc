@@ -158,11 +158,6 @@ typedef struct Node {
     union {
         // Char, int, or long
         long ival;
-        // Float or double
-        struct {
-            double fval;
-            char *flabel;
-        };
         // String
         struct {
             char *sval;

@@ -7,6 +7,27 @@
 #include <string.h>
 #include "8cc.h"
 
+#ifdef __bfs__
+static int g_buf = -1;
+
+static int getc(FILE* fp) {
+  int r;
+  if (g_buf != -1) {
+    r = g_buf;
+    g_buf = -1;
+  } else {
+    r = getchar();
+    if (r == -1)
+      exit(0);
+  }
+  return r;
+}
+
+static void ungetc(int c) {
+  g_buf = c;
+}
+#endif
+
 static bool at_bol = true;
 
 typedef struct {
@@ -40,6 +61,9 @@ static File *make_file(char *displayname, char *realname, FILE *fp) {
 }
 
 void lex_init(char *filename) {
+#ifdef __bfs__
+    set_input_file("(stdin)", NULL, stdin);
+#else
     if (!strcmp(filename, "-")) {
         set_input_file("(stdin)", NULL, stdin);
         return;
@@ -51,6 +75,7 @@ void lex_init(char *filename) {
         error("Cannot open %s: %s", filename, buf);
     }
     set_input_file(filename, filename, fp);
+#endif
 }
 
 static Token *make_token(Token *tmpl) {
@@ -533,8 +558,14 @@ char *read_header_file_name(bool *std) {
             break;
         string_append(s, c);
     }
+#ifdef __bfs__
+    // TODO: 8cc cannot preprocess this properly
+    if (get_cstring(s)[0] == 0)
+        error("header name should not be empty");
+#else
     if (get_cstring(s)[0] == '\0')
         error("header name should not be empty");
+#endif
     return get_cstring(s);
 }
 

@@ -13,7 +13,12 @@ String *make_string(void) {
     r->body = malloc(INIT_SIZE);
     r->nalloc = INIT_SIZE;
     r->len = 0;
+#ifdef __bfs__
+    // TODO: 8cc cannot preprocess this properly
+    r->body[0] = 0;
+#else
     r->body[0] = '\0';
+#endif
     return r;
 }
 
@@ -37,7 +42,12 @@ void string_append(String *s, char c) {
     if (s->nalloc == (s->len + 1))
         realloc_body(s);
     s->body[s->len++] = c;
+#ifdef __bfs__
+    // TODO: 8cc cannot preprocess this properly
+    s->body[s->len] = 0;
+#else
     s->body[s->len] = '\0';
+#endif
 }
 
 void string_appendf(String *s, char *fmt, ...) {

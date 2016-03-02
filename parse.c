@@ -113,10 +113,6 @@ static Node *ast_inttype(Ctype *ctype, long val) {
     return make_ast(&(Node){ AST_LITERAL, ctype, .ival = val });
 }
 
-static Node *ast_floattype(Ctype *ctype, double val) {
-    return make_ast(&(Node){ AST_LITERAL, ctype, .fval = val });
-}
-
 static Node *ast_lvar(Ctype *ctype, char *name) {
     Node *r = make_ast(&(Node){ AST_LVAR, ctype, .varname = name });
     if (localenv)
@@ -593,9 +589,16 @@ static Node *read_int(char *s) {
     } else if (strncasecmp(s, "0b", 2) == 0) {
         base = 2;
         p += 2;
+#ifdef __bfs__
+    // TODO: 8cc cannot preprocess this properly
+    } else if (s[0] == '0' && s[1] != 0) {
+        base = 8;
+        p++;
+#else
     } else if (s[0] == '0' && s[1] != '\0') {
         base = 8;
         p++;
+#endif
     }
     char *digits = p;
     while (isxdigit(*p)) {
@@ -617,35 +620,26 @@ static Node *read_int(char *s) {
         return ast_inttype(ctype_llong, strtoll(s, NULL, base));
     if (!strcasecmp(p, "ull") || !strcasecmp(p, "llu"))
         return ast_inttype(ctype_ullong, strtoull(s, NULL, base));
+#ifdef __bfs__
+    // TODO: 8cc cannot preprocess this properly
+    if (*p != 0)
+        error("invalid suffix '%c': %s", *p, s);
+#else
     if (*p != '\0')
         error("invalid suffix '%c': %s", *p, s);
+#endif
     long val = strtol(digits, NULL, base);
+#ifdef __bfs__
+    return val;
+#else
     return (val & ~(long)UINT_MAX)
         ? ast_inttype(ctype_long, val)
         : ast_inttype(ctype_int, val);
-}
-
-static Node *read_float(char *s) {
-    char *p = s;
-    char *endptr;
-    while (p[1]) p++;
-    Node *r;
-    if (*p == 'l' || *p == 'L') {
-        r = ast_floattype(ctype_ldouble, strtold(s, &endptr));
-    } else if (*p == 'f' || *p == 'F') {
-        r = ast_floattype(ctype_float, strtof(s, &endptr));
-    } else {
-        r = ast_floattype(ctype_double, strtod(s, &endptr));
-        p++;
-    }
-    if (endptr != p)
-        error("malformed floating constant: %s", s);
-    return r;
+#endif
 }
 
 static Node *read_number(char *s) {
-    bool isfloat = strpbrk(s, ".pe");
-    return isfloat ? read_float(s) : read_int(s);
+    return read_int(s);
 }
 
 /*----------------------------------------------------------------------
@@ -1782,7 +1776,11 @@ static Ctype *read_decl_spec(int *rsclass) {
     if (!is_type_keyword(tok))
         error("type keyword expected, but got %s", t2s(tok));
 
+#ifdef __bfs__
+#define unused
+#else
 #define unused __attribute__((unused))
+#endif
     bool kconst unused = false, kvolatile unused = false, kinline unused = false;
 #undef unused
     Ctype *usertype = NULL;
