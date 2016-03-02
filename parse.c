@@ -553,16 +553,16 @@ int eval_intexpr(Node *node) {
     case '/': return L / R;
     case '<': return L < R;
     case '>': return L > R;
-    case '^': return L ^ R;
-    case '&': return L & R;
+    case '^': assert(0);
+    case '&': assert(0);
     case '%': return L % R;
     case OP_EQ: return L == R;
     case OP_GE: return L >= R;
     case OP_LE: return L <= R;
     case OP_NE: return L != R;
-    case OP_SAL: return L << R;
-    case OP_SAR: return L >> R;
-    case OP_SHR: return ((unsigned long)L) >> R;
+    case OP_SAL: assert(0);
+    case OP_SAR: assert(0);
+    case OP_SHR: assert(0);
     case OP_LOGAND: return L && R;
     case OP_LOGOR:  return L || R;
 #undef L

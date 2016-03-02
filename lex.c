@@ -319,10 +319,10 @@ static int read_octal_char(int c) {
     int r = c - '0';
     c = get();
     if ('0' <= c && c <= '7') {
-        r = (r << 3) | (c - '0');
+        r = (r * 8) + (c - '0');
         c = get();
         if ('0' <= c && c <= '7')
-            r = (r << 3) | (c - '0');
+            r = (r * 8) + (c - '0');
         else
             unget(c);
     } else {
@@ -338,9 +338,9 @@ static int read_hex_char(void) {
         error("\\x is not followed by a hexadecimal character: %c", c);
     for (;; c = get()) {
         switch (c) {
-        case '0' ... '9': r = (r << 4) | (c - '0'); continue;
-        case 'a' ... 'f': r = (r << 4) | (c - 'a' + 10); continue;
-        case 'A' ... 'F': r = (r << 4) | (c - 'A' + 10); continue;
+        case '0' ... '9': r = (r * 16) + (c - '0'); continue;
+        case 'a' ... 'f': r = (r * 16) + (c - 'a' + 10); continue;
+        case 'A' ... 'F': r = (r * 16) + (c - 'A' + 10); continue;
         default: unget(c); return r;
         }
     }

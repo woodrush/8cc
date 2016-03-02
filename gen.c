@@ -1112,7 +1112,8 @@ static void emit_data_int(List *inits, int size, int off, int depth) {
                 }
                 v = node->initval;
                 totype = node->totype;
-                data |= ((((long)1 << totype->bitsize) - 1) & eval_intexpr(v)) << totype->bitoff;
+                //data |= ((((long)1 << totype->bitsize) - 1) & eval_intexpr(v)) << totype->bitoff;
+                assert(0);
             }
             emit_data_primtype(totype, &(Node){ AST_LITERAL, totype, .ival = data });
             off += totype->size;
