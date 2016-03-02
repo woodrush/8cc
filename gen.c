@@ -13,8 +13,6 @@ static char *lbreak;
 static char *lcontinue;
 static char *lswitch;
 static int stackpos;
-static int numgp;
-static int numfp;
 static FILE *outputfp;
 static int is_main;
 
@@ -840,43 +838,6 @@ static void emit_compound_stmt(Node *node) {
         emit_expr(iter_next(i));
 }
 
-static void emit_va_start(Node *node) {
-    SAVE;
-    emit_expr(node->ap);
-    push("rcx");
-    emit("movl $%d, (%%rax)", numgp * 8);
-    emit("movl $%d, 4(%%rax)", 48 + numfp * 16);
-    emit("lea %d(%%rbp), %%rcx", -REGAREA_SIZE);
-    emit("mov %%rcx, 16(%%rax)");
-    pop("rcx");
-}
-
-static void emit_va_arg(Node *node) {
-    SAVE;
-    emit_expr(node->ap);
-    emit("nop");
-    push("rcx");
-    push("rbx");
-    emit("mov 16(%%rax), %%rcx");
-    if (is_flotype(node->ctype)) {
-        emit("mov 4(%%rax), %%ebx");
-        emit("add %%rbx, %%rcx");
-        emit("add $16, %%ebx");
-        emit("mov %%ebx, 4(%%rax)");
-        emit("movsd (%%rcx), %%xmm0");
-        if (node->ctype->type == CTYPE_FLOAT)
-            emit("cvtpd2ps %%xmm0, %%xmm0");
-    } else {
-        emit("mov (%%rax), %%ebx");
-        emit("add %%rbx, %%rcx");
-        emit("add $8, %%ebx");
-        emit("mov %%rbx, (%%rax)");
-        emit("mov (%%rcx), %%rax");
-    }
-    pop("rbx");
-    pop("rcx");
-}
-
 static void emit_logand(Node *node) {
     SAVE;
     char *end = make_label();
@@ -1006,8 +967,8 @@ static void emit_expr(Node *node) {
     case AST_STRUCT_REF:
         emit_load_struct_ref(node->struc, node->ctype, 0);
         return;
-    case AST_VA_START: emit_va_start(node); return;
-    case AST_VA_ARG:   emit_va_arg(node); return;
+    case AST_VA_START: assert(0); return;
+    case AST_VA_ARG:   assert(0); return;
     case OP_UMINUS:    emit_uminus(node); return;
     case OP_PRE_INC:   emit_pre_inc_dec(node, "add"); return;
     case OP_PRE_DEC:   emit_pre_inc_dec(node, "sub"); return;
