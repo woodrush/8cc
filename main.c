@@ -38,11 +38,13 @@ static void usage(void) {
     exit(1);
 }
 
+#ifndef __bfs__
 static void delete_temp_files(void) {
     Iter *iter = list_iter(tmpfiles);
     while (!iter_end(iter))
         unlink(iter_next(iter));
 }
+#endif
 
 static char *replace_suffix(char *filename, char suffix) {
     char *r = format("%s", filename);
@@ -147,8 +149,14 @@ static void preprocess(void) {
             break;
         if (tok->bol)
             printf("\n");
+#ifdef __bfs__
+        int i;
+        for (i = 0; i < tok->nspace; i++)
+            putchar(' ');
+#else
         if (tok->nspace)
             printf("%*c", tok->nspace, ' ');
+#endif
         printf("%s", t2s(tok));
     }
     printf("\n");
@@ -156,18 +164,21 @@ static void preprocess(void) {
 }
 
 int main(int argc, char **argv) {
+#ifndef __bfs__
     setbuf(stdout, NULL);
     if (atexit(delete_temp_files))
         perror("atexit");
+#endif
     cpp_init();
     parse_init();
 #ifndef __bfs__
     parseopt(argc, argv);
-#else
-    dontasm = true;
-#endif
     if (string_len(cppdefs) > 0)
         cpp_eval(get_cstring(cppdefs));
+#else
+    dontasm = true;
+    cpponly = true;
+#endif
     lex_init(inputfile);
     set_output_file(open_output_file());
 

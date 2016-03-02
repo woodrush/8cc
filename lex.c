@@ -159,7 +159,7 @@ static void mark_input(void) {
 static void unget(int c) {
     if (c == '\n')
         file->line--;
-    if (ungotten >= 0)
+    if (ungotten != -1)
         ungetc(ungotten, file->fp);
     ungotten = c;
     file->column--;
@@ -179,7 +179,7 @@ static bool skip_newline(int c) {
 }
 
 static int get(void) {
-    int c = (ungotten >= 0) ? ungotten : getc(file->fp);
+    int c = (ungotten != -1) ? ungotten : getc(file->fp);
     file->column++;
     ungotten = -1;
     if (c == '\\') {

@@ -10,7 +10,11 @@ bool suppress_warning = false;
 
 void errorf(char *file, int line, char *fmt, ...) {
     fprintf(stderr, isatty(fileno(stderr)) ? "\e[1;31m[ERROR]\e[0m " : "[ERROR] ");
+#ifdef __bfs__
+    fprintf(stderr, "%d: ", line);
+#else
     fprintf(stderr, "%s:%d: %s: ", file, line, input_position());
+#endif
     va_list args;
     va_start(args, fmt);
     vfprintf(stderr, fmt, args);
