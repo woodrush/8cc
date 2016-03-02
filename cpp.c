@@ -839,9 +839,7 @@ void cpp_init(void) {
     define_special_macro("__COUNTER__", handle_counter_macro);
 
     char *predefined[] = {
-        "__8cc__", "__amd64", "__amd64__", "__x86_64", "__x86_64__",
-        "linux", "__linux", "__linux__", "__gnu_linux__", "__unix", "__unix__",
-        "_LP64", "__LP64__", "__ELF__", "__STDC__", "__STDC_HOSTED__" };
+        "__8cc__", "__bfs__", "__STDC__", "__STDC_HOSTED__" };
 
     for (int i = 0; i < sizeof(predefined) / sizeof(*predefined); i++)
         define_obj_macro(predefined[i], cpp_token_one);
