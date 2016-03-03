@@ -100,10 +100,8 @@ static void a2s_int(String *buf, Node *node) {
             else string_appendf(buf, "'%c'", node->ival);
             break;
         case CTYPE_INT:
-            string_appendf(buf, "%d", node->ival);
-            break;
         case CTYPE_LONG:
-            string_appendf(buf, "%ldL", node->ival);
+            string_appendf(buf, "%d", node->ival);
             break;
         case CTYPE_FLOAT:
         case CTYPE_DOUBLE:

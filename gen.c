@@ -540,11 +540,9 @@ static void emit_literal(Node *node) {
         emit("mov A, %d", node->ival);
         break;
     case CTYPE_INT:
-        emit("mov A, %d", node->ival);
-        break;
     case CTYPE_LONG:
     case CTYPE_LLONG: {
-        emit("mov A, %lu", node->ival);
+        emit("mov A, %d", node->ival);
         break;
     }
     case CTYPE_FLOAT: {
