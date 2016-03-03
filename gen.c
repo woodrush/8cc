@@ -465,9 +465,11 @@ static void emit_copy_struct(Node *left, Node *right) {
     push("B");
     push("C");
     emit_addr(right);
-    emit("mov B, A");
+    push("A");
     emit_addr(left);
     emit("mov C, A");
+    pop("A");
+    emit("mov B, A");
     int i = 0;
     for (; i < left->ctype->size; i++) {
         emit("load A, B");
