@@ -177,7 +177,6 @@ int main(int argc, char **argv) {
         cpp_eval(get_cstring(cppdefs));
 #else
     dontasm = true;
-    cpponly = true;
 #endif
     lex_init(inputfile);
     set_output_file(open_output_file());
