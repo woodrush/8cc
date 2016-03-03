@@ -18,7 +18,7 @@ static int getc(FILE* fp) {
   } else {
     r = getchar();
     if (r == -1)
-      exit(0);
+      return EOF;
   }
   return r;
 }
