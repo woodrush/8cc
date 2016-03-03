@@ -630,7 +630,7 @@ static Node *read_int(char *s) {
 #endif
     long val = strtol(digits, NULL, base);
 #ifdef __bfs__
-    return val;
+    return ast_inttype(ctype_int, val);
 #else
     return (val & ~(long)UINT_MAX)
         ? ast_inttype(ctype_long, val)
