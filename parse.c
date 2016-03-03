@@ -638,7 +638,7 @@ static Node *read_int(char *s) {
 #endif
 }
 
-static Node *read_number(char *s) {
+static Node *read_number_parse(char *s) {
     return read_int(s);
 }
 
@@ -884,7 +884,7 @@ static Node *read_primary_expr(void) {
     case TIDENT:
         return read_var_or_func(tok->sval);
     case TNUMBER:
-        return read_number(tok->sval);
+        return read_number_parse(tok->sval);
     case TCHAR:
         return ast_inttype(ctype_int, tok->c);
     case TSTRING:

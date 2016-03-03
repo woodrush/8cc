@@ -113,7 +113,7 @@ static Token *make_number(char *s) {
     return r;
 }
 
-static void expect(char punct) {
+static void expect_cpp(char punct) {
     Token *tok = read_cpp_token();
     if (!tok || !is_punct(tok, punct))
         error("%c expected, but got %s", t2s(tok));
@@ -127,7 +127,7 @@ bool is_ident(Token *tok, char *s) {
     return tok->type == TIDENT && !strcmp(tok->sval, s);
 }
 
-static bool next(int punct) {
+static bool next_cpp(int punct) {
     Token *tok = read_cpp_token();
     if (is_punct(tok, punct))
         return true;
@@ -407,7 +407,7 @@ static Token *read_expand(void) {
         return read_expand();
     }
     case MACRO_FUNC: {
-        if (!next('('))
+        if (!next_cpp('('))
             return tok;
         List *args = read_args(macro);
         Token *rparen = read_cpp_token();
@@ -443,7 +443,7 @@ static bool read_funclike_macro_params(Dict *param) {
             error("missing ')' in macro parameter list");
         if (is_ident(tok, "...")) {
             dict_put(param, "__VA_ARGS__", make_macro_token(pos++, true));
-            expect(')');
+            expect_cpp(')');
             return true;
         }
         if (tok->type != TIDENT)
@@ -451,7 +451,7 @@ static bool read_funclike_macro_params(Dict *param) {
         char *arg = tok->sval;
         tok = read_cpp_token();
         if (is_ident(tok, "...")) {
-            expect(')');
+            expect_cpp(')');
             dict_put(param, arg, make_macro_token(pos++, true));
             return true;
         }
@@ -532,7 +532,7 @@ static Token *read_defined_op(void) {
     Token *tok = read_cpp_token();
     if (is_punct(tok, '(')) {
         tok = read_cpp_token();
-        expect(')');
+        expect_cpp(')');
     }
     if (tok->type != TIDENT)
         error("Identifier expected, but got %s", t2s(tok));

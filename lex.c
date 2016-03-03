@@ -102,7 +102,7 @@ static Token *make_punct(int punct) {
     return make_token(&(Token){ TPUNCT, .nspace = 0, .punct = punct });
 }
 
-static Token *make_number(char *s) {
+static Token *make_number_lex(char *s) {
     return make_token(&(Token){ TNUMBER, .nspace = 0, .sval = s });
 }
 
@@ -309,7 +309,7 @@ static Token *read_number(char c) {
         int c = get();
         if (!isdigit(c) && !isalpha(c) && c != '.') {
             unget(c);
-            return make_number(get_cstring(s));
+            return make_number_lex(get_cstring(s));
         }
         string_append(s, c);
     }
@@ -395,7 +395,7 @@ static Token *read_string(void) {
     return make_strtok(get_cstring(s));
 }
 
-static Token *read_ident(char c) {
+static Token *read_ident_lex(char c) {
     String *s = make_string();
     string_append(s, c);
     for (;;) {
@@ -452,11 +452,11 @@ static Token *read_token_int(void) {
     case 'L':
         if (next('"'))  return read_string();
         if (next('\'')) return read_char();
-        return read_ident('L');
+        return read_ident_lex('L');
     case '0' ... '9':
         return read_number(c);
     case 'a' ... 'z': case 'A' ... 'K': case 'M' ... 'Z': case '_': case '$':
-        return read_ident(c);
+        return read_ident_lex(c);
     case '/': {
         if (next('/')) {
             skip_line();
