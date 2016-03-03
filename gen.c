@@ -66,10 +66,10 @@ static void emitf(int line, char *fmt, ...) {
         if (*p == '\t')
             col += TAB - 1;
 #ifdef __bfs__
+    fprintf(outputfp, " %c %d\n", '#', get_caller_list(), line);
+#else
     int space = (28 - col) > 0 ? (30 - col) : 2;
     fprintf(outputfp, "%*c %s:%d\n", space, '#', get_caller_list(), line);
-#else
-    fprintf(outputfp, " # %s:%d\n", get_caller_list(), line);
 #endif
 }
 
