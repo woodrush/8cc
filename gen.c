@@ -208,7 +208,7 @@ static void emit_pointer_arith(char type, Node *left, Node *right) {
 static void emit_zero_filler(int start, int end) {
     emit("mov A, 0");
     emit("mov B, SP");
-    for (; start < end; start++) {
+    for (; start != end; start++) {
         emit("store A, B");
         emit("add B, 1");
     }
