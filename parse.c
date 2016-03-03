@@ -1337,24 +1337,10 @@ static Dict *update_struct_offset(List *fields, int *rsize) {
             bitoff = 0;
             continue;
         }
-        if (fieldtype->bitsize >= 0) {
-            int room = fieldtype->size * 8 - bitoff;
-            if (0 <= bitoff && fieldtype->bitsize <= room) {
-                fieldtype->bitoff = bitoff;
-                fieldtype->offset = off;
-            } else {
-                finish_bitfield(&off, &bitoff);
-                off += compute_padding(off, fieldtype);
-                fieldtype->offset = off;
-                fieldtype->bitoff = 0;
-            }
-            bitoff = fieldtype->bitsize;
-        } else {
-            finish_bitfield(&off, &bitoff);
-            off += compute_padding(off, fieldtype);
-            fieldtype->offset = off;
-            off += fieldtype->size;
-        }
+        finish_bitfield(&off, &bitoff);
+        off += compute_padding(off, fieldtype);
+        fieldtype->offset = off;
+        off += fieldtype->size;
         dict_put(r, name, fieldtype);
     }
     finish_bitfield(&off, &bitoff);
