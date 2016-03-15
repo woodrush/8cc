@@ -641,6 +641,8 @@ static void emit_func_call(Node *node) {
 
     if (!node->fname) {
         emit_call(node);
+    } else if (!strcmp(node->fname, "__builtin_dump")) {
+        emit("dump");
     } else if (!strcmp(node->fname, "exit")) {
         emit("exit");
     } else if (!strcmp(node->fname, "putchar")) {
