@@ -29,9 +29,9 @@ static char *c2s_int(Dict *dict, Ctype *ctype) {
         return format("[%d]%s", ctype->len, c2s_int(dict, ctype->ptr));
     case CTYPE_STRUCT: {
         char *type = ctype->is_struct ? "struct" : "union";
-        if (dict_get(dict, format("%p", ctype)))
+        if (dict_get(dict, format("%x", ctype)))
             return format("(%s)", type);
-        dict_put(dict, format("%p", ctype), (void *)1);
+        dict_put(dict, format("%x", ctype), (void *)1);
         String *s = make_string();
         string_appendf(s, "(%s", type);
         for (Iter *i = list_iter(dict_values(ctype->fields)); !iter_end(i);) {
