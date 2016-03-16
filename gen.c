@@ -1066,25 +1066,7 @@ static void emit_data_int(List *inits, int size, int off, int depth) {
         Node *node = iter_next(iter);
         Node *v = node->initval;
         emit_padding(node, off);
-        if (node->totype->bitsize > 0) {
-            assert(node->totype->bitoff == 0);
-            long data = eval_intexpr(v);
-            Ctype *totype = node->totype;
-            while (!iter_end(iter)) {
-                node = iter_next(iter);
-                if (node->totype->bitsize <= 0) {
-                    break;
-                }
-                v = node->initval;
-                totype = node->totype;
-                //data |= ((((long)1 << totype->bitsize) - 1) & eval_intexpr(v)) << totype->bitoff;
-                assert(0);
-            }
-            emit_data_primtype(totype, &(Node){ AST_LITERAL, totype, .ival = data });
-            off += totype->size;
-            size -= totype->size;
-            if (iter_end(iter))
-                break;
+        if (0) {
         } else {
             off += node->totype->size;
             size -= node->totype->size;
