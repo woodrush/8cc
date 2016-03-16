@@ -291,7 +291,7 @@ static Ctype* make_ptr_type(Ctype *ctype) {
 
 static Ctype* make_array_type(Ctype *ctype, int len) {
     int size;
-    if (len < 0)
+    if (len == -1)
         size = -1;
     else
         size = ctype->size * len;
