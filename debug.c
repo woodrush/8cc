@@ -108,7 +108,7 @@ static void a2s_int(String *buf, Node *node) {
             assert(0);
             break;
         default:
-            error("internal error");
+            error("internal error: %d", node->type);
         }
         break;
     case AST_STRING:

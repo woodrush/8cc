@@ -557,7 +557,7 @@ static void emit_literal(Node *node) {
         break;
     }
     default:
-        error("internal error");
+        error("internal error: %d", node->ctype->type);
     }
 }
 
