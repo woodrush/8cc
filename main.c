@@ -18,6 +18,7 @@ static bool dontlink;
 static String *cppdefs;
 static List *tmpfiles = &EMPTY_LIST;
 
+#ifndef __bfs__
 static void usage(void) {
     fprintf(stderr,
             "Usage: 8cc [ -E ][ -a ] [ -h ] <file>\n\n"
@@ -37,6 +38,7 @@ static void usage(void) {
             "One of -a, -c, -E or -S must be specified.\n\n");
     exit(1);
 }
+#endif
 
 #ifndef __bfs__
 static void delete_temp_files(void) {
