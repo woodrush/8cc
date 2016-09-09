@@ -27,8 +27,8 @@ static char *last_loc = "";
 static void emit_addr(Node *node);
 static void emit_expr(Node *node);
 static void emit_decl_init(Vector *inits, int off, int totalsize);
-static void do_emit_data(Vector *inits, int size, int off, int depth);
-static void emit_data(Node *v, int off, int depth);
+static void do_emit_data(Vector *inits, int size, int off);
+static void emit_data(Node *v, int off);
 
 #define REGAREA_SIZE 176
 
@@ -1268,15 +1268,14 @@ static void emit_padding(Node *node, int off) {
     emit_zero(diff);
 }
 
-static void emit_data_addr(Node *operand, int depth) {
+static void emit_data_addr(Node *operand) {
     switch (operand->kind) {
     case AST_LVAR: {
         char *label = make_label();
-        emit(".data %d", depth + 1);
-        emit_label(label);
-        do_emit_data(operand->lvarinit, operand->ty->size, 0, depth + 1);
-        emit(".data %d", depth);
+        emit(".data");
         emit(".quad %s", label);
+        emit_label(label);
+        do_emit_data(operand->lvarinit, operand->ty->size, 0);
         return;
     }
     case AST_GVAR:
@@ -1287,16 +1286,15 @@ static void emit_data_addr(Node *operand, int depth) {
     }
 }
 
-static void emit_data_charptr(char *s, int depth) {
+static void emit_data_charptr(char *s) {
     char *label = make_label();
-    emit(".data %d", depth + 1);
+    emit(".data");
+    emit(".quad %s", label);
     emit_label(label);
     emit(".string \"%s\"", quote_cstring(s));
-    emit(".data %d", depth);
-    emit(".quad %s", label);
 }
 
-static void emit_data_primtype(Type *ty, Node *val, int depth) {
+static void emit_data_primtype(Type *ty, Node *val) {
     switch (ty->kind) {
     case KIND_FLOAT: {
         float f = val->fval;
@@ -1327,7 +1325,7 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
         }
         bool is_char_ptr = (val->operand->ty->kind == KIND_ARRAY && val->operand->ty->ptr->kind == KIND_CHAR);
         if (is_char_ptr) {
-            emit_data_charptr(val->operand->sval, depth);
+            emit_data_charptr(val->operand->sval);
         } else if (val->kind == AST_GVAR) {
             emit(".quad %s", val->glabel);
         } else {
@@ -1351,7 +1349,7 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
     }
 }
 
-static void do_emit_data(Vector *inits, int size, int off, int depth) {
+static void do_emit_data(Vector *inits, int size, int off) {
     SAVE;
     for (int i = 0; i < vec_len(inits) && 0 < size; i++) {
         Node *node = vec_get(inits, i);
@@ -1370,7 +1368,7 @@ static void do_emit_data(Vector *inits, int size, int off, int depth) {
                 totype = node->totype;
                 data |= ((((long)1 << totype->bitsize) - 1) & eval_intexpr(v, NULL)) << totype->bitoff;
             }
-            emit_data_primtype(totype, &(Node){ AST_LITERAL, totype, .ival = data }, depth);
+            emit_data_primtype(totype, &(Node){ AST_LITERAL, totype, .ival = data });
             off += totype->size;
             size -= totype->size;
             if (i == vec_len(inits))
@@ -1380,25 +1378,25 @@ static void do_emit_data(Vector *inits, int size, int off, int depth) {
             size -= node->totype->size;
         }
         if (v->kind == AST_ADDR) {
-            emit_data_addr(v->operand, depth);
+            emit_data_addr(v->operand);
             continue;
         }
         if (v->kind == AST_LVAR && v->lvarinit) {
-            do_emit_data(v->lvarinit, v->ty->size, 0, depth);
+            do_emit_data(v->lvarinit, v->ty->size, 0);
             continue;
         }
-        emit_data_primtype(node->totype, node->initval, depth);
+        emit_data_primtype(node->totype, node->initval);
     }
     emit_zero(size);
 }
 
-static void emit_data(Node *v, int off, int depth) {
+static void emit_data(Node *v, int off) {
     SAVE;
-    emit(".data %d", depth);
+    emit(".data");
     if (!v->declvar->ty->isstatic)
         emit_noindent(".global %s", v->declvar->glabel);
     emit_noindent("%s:", v->declvar->glabel);
-    do_emit_data(v->declinit, v->declvar->ty->size, off, depth);
+    do_emit_data(v->declinit, v->declvar->ty->size, off);
 }
 
 static void emit_bss(Node *v) {
@@ -1412,7 +1410,7 @@ static void emit_bss(Node *v) {
 static void emit_global_var(Node *v) {
     SAVE;
     if (v->declinit)
-        emit_data(v, 0, 0);
+        emit_data(v, 0);
     else
         emit_bss(v);
 }
