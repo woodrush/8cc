@@ -1097,9 +1097,13 @@ static void emit_data(Node *v, int off, int depth) {
 }
 
 static void emit_bss(Node *v) {
+    int i;
     SAVE;
     emit(".data");
-    emit(".lcomm %s, %d", v->declvar->varname, v->declvar->ctype->size);
+    emit("%s:\n", v->declvar->varname);
+    for (i = 0; i < v->declvar->ctype->size; i++) {
+      emit(".long 0");
+    }
 }
 
 static void emit_global_var(Node *v) {
