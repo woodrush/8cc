@@ -1052,7 +1052,10 @@ static void emit_data_primtype(Ctype *ctype, Node *val) {
     case CTYPE_LONG:
     case CTYPE_LLONG:
     case CTYPE_PTR:
-        emit(".long %d", eval_intexpr(val));
+        if (val->type == AST_GVAR)
+            emit(".long %s", val->varname);
+        else
+            emit(".long %d", eval_intexpr(val));
         break;
     default:
         error("don't know how to handle\n  <%s>\n  <%s>", c2s(ctype), a2s(val));
