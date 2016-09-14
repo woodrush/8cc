@@ -4,13 +4,10 @@
 #ifndef EIGHTCC_UTIL_H
 #define EIGHTCC_UTIL_H
 
+#include <assert.h>
+
 #define error(...)                              \
     errorf(__FILE__, __LINE__, __VA_ARGS__)
-
-#define assert(expr)                                    \
-    do {                                                \
-        if (!(expr)) error("Assertion failed: " #expr); \
-    } while (0)
 
 #ifndef __8cc__
 #define NORETURN __attribute__((noreturn))
