@@ -850,11 +850,13 @@ static void define_special_macro(char *name, special_macro_handler *fn) {
 }
 
 void cpp_init(void) {
+#if 0
     list_unshift(std_include_path, "/usr/include/x86_64-linux-gnu");
     list_unshift(std_include_path, "/usr/include/linux");
     list_unshift(std_include_path, "/usr/include");
     list_unshift(std_include_path, "/usr/local/include");
     list_unshift(std_include_path, "./include");
+#endif
 
     define_special_macro("__DATE__", handle_date_macro);
     define_special_macro("__TIME__", handle_time_macro);
