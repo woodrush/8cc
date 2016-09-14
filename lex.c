@@ -7,7 +7,7 @@
 #include <string.h>
 #include "8cc.h"
 
-#ifdef __bfs__
+#ifdef __eir__
 static int g_buf = -1;
 
 static int getc(FILE* fp) {
@@ -61,7 +61,7 @@ static File *make_file(char *displayname, char *realname, FILE *fp) {
 }
 
 void lex_init(char *filename) {
-#ifdef __bfs__
+#ifdef __eir__
     set_input_file("(stdin)", NULL, stdin);
 #else
     if (!strcmp(filename, "-")) {
@@ -558,7 +558,7 @@ char *read_header_file_name(bool *std) {
             break;
         string_append(s, c);
     }
-#ifdef __bfs__
+#ifdef __eir__
     // TODO: 8cc cannot preprocess this properly
     if (get_cstring(s)[0] == 0)
         error("header name should not be empty");

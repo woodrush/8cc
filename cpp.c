@@ -49,7 +49,7 @@ static Token *read_expand(void);
  */
 
 void cpp_eval(char *buf) {
-#ifdef __bfs__
+#ifdef __eir__
     assert(0);
 #else
     FILE *fp = fmemopen(buf, strlen(buf), "r");
@@ -666,7 +666,7 @@ static char *read_cpp_header_name(bool *std) {
     return join_tokens(tokens, false);
 }
 
-#ifndef __bfs__
+#ifndef __eir__
 static bool try_include(char *dir, char *filename) {
     char *path = format("%s/%s", dir, filename);
     FILE *fp = fopen(path, "r");
@@ -678,7 +678,7 @@ static bool try_include(char *dir, char *filename) {
 #endif
 
 static void read_include(void) {
-#ifdef __bfs__
+#ifdef __eir__
     assert(0);
 #else
     bool std;
@@ -755,7 +755,7 @@ static void read_directive(void) {
  * Special macros
  */
 
-#ifndef __bfs__
+#ifndef __eir__
 static struct tm *gettime(void) {
     if (current_time)
         return current_time;
@@ -767,7 +767,7 @@ static struct tm *gettime(void) {
 #endif
 
 static void handle_date_macro(Token *tmpl) {
-#ifdef __bfs__
+#ifdef __eir__
     assert(0);
 #else
     Token *tok = copy_token(tmpl);
@@ -780,7 +780,7 @@ static void handle_date_macro(Token *tmpl) {
 }
 
 static void handle_time_macro(Token *tmpl) {
-#ifdef __bfs__
+#ifdef __eir__
     assert(0);
 #else
     Token *tok = copy_token(tmpl);
@@ -824,7 +824,7 @@ static char *drop_last_slash(char *s) {
     char *r = format("%s", s);
     char *p = r + strlen(r) - 1;
     if (*p == '/')
-#ifdef __bfs__
+#ifdef __eir__
         // TODO: 8cc cannot preprocess this properly
         *p = 0;
 #else
@@ -864,7 +864,7 @@ void cpp_init(void) {
     define_special_macro("__COUNTER__", handle_counter_macro);
 
     char *predefined[] = {
-        "__8cc__", "__bfs__", "__STDC__", "__STDC_HOSTED__" };
+        "__8cc__", "__eir__", "__STDC__", "__STDC_HOSTED__" };
 
     for (int i = 0; i < sizeof(predefined) / sizeof(*predefined); i++)
         define_obj_macro(predefined[i], cpp_token_one);

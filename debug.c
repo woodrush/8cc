@@ -91,7 +91,7 @@ static void a2s_int(String *buf, Node *node) {
         case CTYPE_CHAR:
             if (node->ival == '\n')      string_appendf(buf, "'\n'");
             else if (node->ival == '\\') string_appendf(buf, "'\\\\'");
-#ifdef __bfs__
+#ifdef __eir__
             // TODO: 8cc cannot preprocess this properly
             else if (node->ival == 0) string_appendf(buf, "'\\0'");
 #else

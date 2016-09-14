@@ -65,7 +65,7 @@ static void emitf(int line, char *fmt, ...) {
     for (char *p = fmt; *p; p++)
         if (*p == '\t')
             col += TAB - 1;
-#ifdef __bfs__
+#ifdef __eir__
     // TODO: Fix?
     //fprintf(outputfp, " %s %d\n", '#', get_caller_list(), line);
     fprintf(outputfp, "\n");
