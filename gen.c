@@ -183,15 +183,36 @@ static void emit_assign_deref(Node *var) {
     emit_assign_deref_int(var->operand->ctype->ptr, 0);
 }
 
+static void emit_label(char *label) {
+    emit("%s:", label);
+}
+
+static void emit_call_builtin(char *fname) {
+    char *end = make_label();
+    emit("mov A, %s", end);
+    push("A");
+    emit("jmp %s", fname);
+    emit_label(end);
+    emit("mov A, B");
+}
+
 static void emit_pointer_arith(char type, Node *left, Node *right) {
     SAVE;
     emit_expr(left);
     push("B");
     push("A");
     emit_expr(right);
-    assert(left->ctype->ptr->size <= 2);
+
     if (left->ctype->ptr->size == 2)
         emit("add A, A");
+    if (left->ctype->ptr->size > 2) {
+        push("A");
+        emit("mov A, %d", left->ctype->ptr->size);
+        push("A");
+        emit_call_builtin("__builtin_mul");
+        emit("add SP, 1");
+    }
+
     emit("mov B, A");
     pop("A");
     switch (type) {
@@ -305,19 +326,6 @@ static void emit_comp(char *inst, Node *node) {
         pop("A");
     }
     emit("%s A, B", inst);
-}
-
-static void emit_label(char *label) {
-    emit("%s:", label);
-}
-
-static void emit_call_builtin(char *fname) {
-    char *end = make_label();
-    emit("mov A, %s", end);
-    push("A");
-    emit("jmp %s", fname);
-    emit_label(end);
-    emit("mov A, B");
 }
 
 static void emit_binop_int_arith(Node *node) {
