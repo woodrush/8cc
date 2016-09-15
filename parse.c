@@ -30,16 +30,16 @@ static Ctype *current_func_type;
 Ctype *ctype_void = &(Ctype){ CTYPE_VOID, 0, true };
 Ctype *ctype_bool = &(Ctype){ CTYPE_BOOL, 1, false };
 Ctype *ctype_char = &(Ctype){ CTYPE_CHAR, 1, true };
-Ctype *ctype_short = &(Ctype){ CTYPE_SHORT, 2, true };
-Ctype *ctype_int = &(Ctype){ CTYPE_INT, 4, true };
-Ctype *ctype_long = &(Ctype){ CTYPE_LONG, 8, true };
+Ctype *ctype_short = &(Ctype){ CTYPE_SHORT, 1, true };
+Ctype *ctype_int = &(Ctype){ CTYPE_INT, 1, true };
+Ctype *ctype_long = &(Ctype){ CTYPE_LONG, 1, true };
 Ctype *ctype_float = &(Ctype){ CTYPE_FLOAT, 4, true };
 Ctype *ctype_double = &(Ctype){ CTYPE_DOUBLE, 8, true };
 Ctype *ctype_ldouble = &(Ctype){ CTYPE_LDOUBLE, 16, true };
-static Ctype *ctype_uint = &(Ctype){ CTYPE_INT, 4, false };
-static Ctype *ctype_ulong = &(Ctype){ CTYPE_LONG, 8, false };
-static Ctype *ctype_llong = &(Ctype){ CTYPE_LLONG, 8, true };
-static Ctype *ctype_ullong = &(Ctype){ CTYPE_LLONG, 8, false };
+static Ctype *ctype_uint = &(Ctype){ CTYPE_INT, 1, false };
+static Ctype *ctype_ulong = &(Ctype){ CTYPE_LONG, 1, false };
+static Ctype *ctype_llong = &(Ctype){ CTYPE_LLONG, 1, true };
+static Ctype *ctype_ullong = &(Ctype){ CTYPE_LLONG, 1, false };
 
 static int labelseq = 0;
 
