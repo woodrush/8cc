@@ -210,7 +210,8 @@ static void emit_pointer_arith(char type, Node *left, Node *right) {
         emit("mov A, %d", left->ctype->ptr->size);
         push("A");
         emit_call_builtin("__builtin_mul");
-        emit("add SP, 1");
+        emit("add SP, 2");
+        stackpos -= 3;
     }
 
     emit("mov B, A");
