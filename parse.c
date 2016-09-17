@@ -24,6 +24,7 @@ static Dict *struct_defs = &EMPTY_DICT;
 static Dict *union_defs = &EMPTY_DICT;
 static List *gotos;
 static Dict *labels;
+static List *toplevels;
 static List *localvars;
 static Ctype *current_func_type;
 
@@ -42,6 +43,7 @@ static Ctype *ctype_llong = &(Ctype){ CTYPE_LLONG, 1, true };
 static Ctype *ctype_ullong = &(Ctype){ CTYPE_LLONG, 1, false };
 
 static int labelseq = 0;
+static int staticseq = 0;
 
 typedef Node *MakeVarFn(Ctype *ctype, char *name);
 
@@ -91,6 +93,10 @@ char *make_label(void) {
     return format(".L%d", labelseq++);
 }
 
+static char *make_static_label(char *name) {
+    return format(".S%d.%s", staticseq++, name);
+}
+
 static Node *make_ast(Node *tmpl) {
     Node *r = malloc(sizeof(Node));
     *r = *tmpl;
@@ -124,6 +130,17 @@ static Node *ast_lvar(Ctype *ctype, char *name) {
 static Node *ast_gvar(Ctype *ctype, char *name) {
     Node *r = make_ast(&(Node){ AST_GVAR, ctype, .varname = name, .glabel = name });
     dict_put(globalenv, name, r);
+    return r;
+}
+
+static Node *ast_static_lvar(Ctype *ctype, char *name) {
+    Node *r = make_ast(&(Node){
+        .type = AST_GVAR,
+        .ctype = ctype,
+        .varname = name,
+        .glabel = make_static_label(name) });
+    assert(localenv);
+    dict_put(localenv, name, r);
     return r;
 }
 
@@ -1876,6 +1893,18 @@ static Ctype *read_decl_spec(int *rsclass) {
  * Declaration
  */
 
+static void read_static_local_var(Ctype *ty, char *name) {
+    Node *var = ast_static_lvar(ty, name);
+    List *init = NULL;
+    if (next_token('=')) {
+        Dict *orig = localenv;
+        localenv = NULL;
+        init = read_decl_init(ty);
+        localenv = orig;
+    }
+    list_push(toplevels, ast_decl(var, init));
+}
+
 static void read_decl(List *block, MakeVarFn *make_var) {
     int sclass;
     Ctype *basetype = read_decl_spec(&sclass);
@@ -1895,6 +1924,9 @@ static void read_decl(List *block, MakeVarFn *make_var) {
             tok = read_token();
         } else if (sclass == S_TYPEDEF) {
             ast_typedef(ctype, name);
+        } else if (ctype->isstatic && make_var != ast_gvar) {
+            ensure_not_void(ctype);
+            read_static_local_var(ctype, name);
         } else if (ctype->type == CTYPE_FUNC) {
             make_var(ctype, name);
         } else {
@@ -2207,14 +2239,14 @@ static void read_decl_or_stmt(List *list) {
  */
 
 List *read_toplevels(void) {
-    List *r = make_list();
+    toplevels = make_list();
     for (;;) {
         if (!peek_token())
-            return r;
+            return toplevels;
         if (is_funcdef())
-            list_push(r, read_funcdef());
+            list_push(toplevels, read_funcdef());
         else
-            read_decl(r, ast_gvar);
+            read_decl(toplevels, ast_gvar);
     }
 }
 
