@@ -21,6 +21,12 @@ static void emit_decl_init(List *inits, int off);
 static void emit_data_int(List *inits, int size, int off, int depth);
 static void emit_data(Node *v, int off, int depth);
 
+#ifdef __eir__
+#define MOD24(x) x
+#else
+#define MOD24(x) (x & 0xffffff)
+#endif
+
 #define REGAREA_SIZE 304
 
 #define emit(...)        emitf(__LINE__, "\t" __VA_ARGS__)
@@ -98,12 +104,12 @@ static void emit_gload(Ctype *ctype, char *label, int off) {
     if (ctype->type == CTYPE_ARRAY) {
         emit("mov A, %s", label);
         if (off)
-            emit("add A, %d", off);
+            emit("add A, %d", MOD24(off));
         return;
     }
     emit("mov B, %s", label);
     if (off)
-        emit("add B, %d", off);
+        emit("add B, %d", MOD24(off));
     emit("load A, B");
 }
 
@@ -120,7 +126,7 @@ static void emit_lload(Ctype *ctype, char *base, int off) {
     if (ctype->type == CTYPE_ARRAY) {
         emit("mov A, %s", base);
         if (off)
-            emit("add A, %d", off);
+            emit("add A, %d", MOD24(off));
     } else if (ctype->type == CTYPE_FLOAT) {
         assert(0);
     } else if (ctype->type == CTYPE_DOUBLE || ctype->type == CTYPE_LDOUBLE) {
@@ -128,7 +134,7 @@ static void emit_lload(Ctype *ctype, char *base, int off) {
     } else {
         emit("mov B, %s", base);
         if (off)
-            emit("add B, %d", off);
+            emit("add B, %d", MOD24(off));
         emit("load A, B");
     }
 }
@@ -146,7 +152,7 @@ static void emit_gsave(char *varname, Ctype *ctype, int off) {
     maybe_convert_bool(ctype);
     emit("mov B, %s", varname);
     if (off)
-        emit("add B, %d", off);
+        emit("add B, %d", MOD24(off));
     emit("store A, B");
 }
 
@@ -159,7 +165,7 @@ static void emit_lsave(Ctype *ctype, int off) {
     } else {
         emit("mov B, BP");
         if (off)
-            emit("add B, %d", off);
+            emit("add B, %d", MOD24(off));
         emit("store A, B");
     }
 }
@@ -171,7 +177,7 @@ static void emit_assign_deref_int(Ctype *ctype, int off) {
     emit("mov B, A");
     emit("mov A, C");
     if (off)
-        emit("add A, %d", off);
+        emit("add A, %d", MOD24(off));
     emit("store B, A");
     pop("A");
 }
@@ -436,8 +442,8 @@ static void emit_save_literal(Node *node, Ctype *totype, int off) {
     case CTYPE_PTR: {
         emit("mov B, BP");
         if (off)
-            emit("add B, %d", off);
-        emit("mov A, %d", v);
+            emit("add B, %d", MOD24(off));
+        emit("mov A, %d", MOD24(v));
         emit("store A, B");
         break;
     }
@@ -455,7 +461,7 @@ static void emit_addr(Node *node) {
         ensure_lvar_init(node);
         emit("mov A, BP");
         if (node->loff)
-            emit("add A, %d", node->loff);
+            emit("add A, %d", MOD24(node->loff));
         break;
     case AST_GVAR:
         emit("mov A, %s", node->glabel);
@@ -465,7 +471,7 @@ static void emit_addr(Node *node) {
         break;
     case AST_STRUCT_REF:
         emit_addr(node->struc);
-        emit("add A, %d", node->ctype->offset);
+        emit("add A, %d", MOD24(node->ctype->offset));
         break;
     default:
         error("internal error: %s", a2s(node));
@@ -548,12 +554,12 @@ static void emit_literal(Node *node) {
     switch (node->ctype->type) {
     case CTYPE_BOOL:
     case CTYPE_CHAR:
-        emit("mov A, %d", node->ival);
+        emit("mov A, %d", MOD24(node->ival));
         break;
     case CTYPE_INT:
     case CTYPE_LONG:
     case CTYPE_LLONG: {
-        emit("mov A, %d", node->ival);
+        emit("mov A, %d", MOD24(node->ival));
         break;
     }
     case CTYPE_FLOAT: {
@@ -1064,7 +1070,7 @@ static void emit_data_primtype(Ctype *ctype, Node *val) {
         if (val->type == AST_GVAR)
             emit(".long %s", val->varname);
         else
-            emit(".long %d", eval_intexpr(val));
+            emit(".long %d", MOD24(eval_intexpr(val)));
         break;
     default:
         error("don't know how to handle\n  <%s>\n  <%s>", c2s(ctype), a2s(val));
