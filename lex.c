@@ -106,7 +106,7 @@ static Token *make_number_lex(char *s) {
     return make_token(&(Token){ TNUMBER, .nspace = 0, .sval = s });
 }
 
-static Token *make_char(char c) {
+static Token *make_char(unsigned char c) {
     return make_token(&(Token){ TCHAR, .nspace = 0, .c = c });
 }
 

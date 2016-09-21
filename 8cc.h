@@ -53,7 +53,7 @@ typedef struct {
     union {
         char *sval;
         int punct;
-        char c;
+        int c;
         int position;
     };
 } Token;
