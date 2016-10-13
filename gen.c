@@ -472,44 +472,50 @@ static void emit_comp(char *inst, char *usiginst, Node *node) {
     emit("movzb #al, #eax");
 }
 
+static void emit_call_builtin(char *fname);
+
 static void emit_binop_int_arith(Node *node) {
     SAVE;
-    char *op = NULL;
-    switch (node->kind) {
-    case '+': op = "add"; break;
-    case '-': op = "sub"; break;
-    case '*': op = "imul"; break;
-    case '^': op = "xor"; break;
-    case OP_SAL: op = "sal"; break;
-    case OP_SAR: op = "sar"; break;
-    case OP_SHR: op = "shr"; break;
-    case '/': case '%': break;
-    default: error("invalid operator '%d'", node->kind);
-    }
     emit_expr(node->left);
-    push("rax");
+    push("A");
     emit_expr(node->right);
-    emit("mov #rax, #rcx");
-    pop("rax");
-    if (node->kind == '/' || node->kind == '%') {
-        if (node->ty->usig) {
-          emit("xor #edx, #edx");
-          emit("div #rcx");
-        } else {
-          emit("cqto");
-          emit("idiv #rcx");
-        }
-        if (node->kind == '%')
-            emit("mov #edx, #eax");
-    } else if (node->kind == OP_SAL || node->kind == OP_SAR || node->kind == OP_SHR) {
-        emit("%s #cl, #%s", op, get_int_reg(node->left->ty, 'a'));
-    } else {
-        emit("%s #rcx, #rax", op);
+    emit("mov B, A");
+    pop("A");
+    switch (node->kind) {
+        case '+':
+            emit("add A, B");
+            break;
+        case '-':
+            emit("sub A, B");
+            break;
+        case '*':
+        case '/':
+        case '%':
+            push("B");
+            push("A");
+            if (node->kind == '*')
+                emit_call_builtin("__builtin_mul");
+            else if (node->kind == '/')
+                emit_call_builtin("__builtin_div");
+            else if (node->kind == '%')
+                emit_call_builtin("__builtin_mod");
+            emit("add SP, 2");
+            stackpos -= 3;
+            break;
+        case '^':
+        case OP_SAL:
+        case OP_SAR:
+        case OP_SHR:
+            assert(0);
+            break;
+        default: error("invalid operator '%d'", node->kind);
     }
 }
 
 static void emit_binop_float_arith(Node *node) {
     SAVE;
+    assert_float();
+#if 0
     char *op;
     bool isdouble = (node->ty->kind == KIND_DOUBLE);
     switch (node->kind) {
@@ -525,6 +531,7 @@ static void emit_binop_float_arith(Node *node) {
     emit("%s #xmm0, #xmm1", (isdouble ? "movsd" : "movss"));
     pop_xmm(0);
     emit("%s #xmm1, #xmm0", op);
+#endif
 }
 
 static void emit_load_convert(Type *to, Type *from) {
@@ -717,6 +724,15 @@ static void emit_label(char *label) {
 
 static void emit_jmp(char *label) {
     emit("jmp %s", label);
+}
+
+static void emit_call_builtin(char *fname) {
+    char *end = make_label();
+    emit("mov A, %s", end);
+    push("A");
+    emit("jmp %s", fname);
+    emit_label(end);
+    emit("mov A, B");
 }
 
 static void emit_literal(Node *node) {
