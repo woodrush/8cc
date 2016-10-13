@@ -49,15 +49,11 @@ static Token *read_expand(void);
  */
 
 void cpp_eval(char *buf) {
-#ifdef __eir__
-    assert(0);
-#else
     FILE *fp = fmemopen(buf, strlen(buf), "r");
     set_input_file("(eval)", NULL, fp);
     List *toplevels = read_toplevels();
     for (Iter *i = list_iter(toplevels); !iter_end(i);)
         emit_toplevel(iter_next(i));
-#endif
 }
 
 /*----------------------------------------------------------------------
@@ -113,7 +109,7 @@ static Token *make_number(char *s) {
     return r;
 }
 
-static void expect_cpp(char punct) {
+static void expect(char punct) {
     Token *tok = read_cpp_token();
     if (!tok || !is_punct(tok, punct))
         error("%c expected, but got %s", t2s(tok));
@@ -127,7 +123,7 @@ bool is_ident(Token *tok, char *s) {
     return tok->type == TIDENT && !strcmp(tok->sval, s);
 }
 
-static bool next_cpp(int punct) {
+static bool next(int punct) {
     Token *tok = read_cpp_token();
     if (is_punct(tok, punct))
         return true;
@@ -407,7 +403,7 @@ static Token *read_expand(void) {
         return read_expand();
     }
     case MACRO_FUNC: {
-        if (!next_cpp('('))
+        if (!next('('))
             return tok;
         List *args = read_args(macro);
         Token *rparen = read_cpp_token();
@@ -443,7 +439,7 @@ static bool read_funclike_macro_params(Dict *param) {
             error("missing ')' in macro parameter list");
         if (is_ident(tok, "...")) {
             dict_put(param, "__VA_ARGS__", make_macro_token(pos++, true));
-            expect_cpp(')');
+            expect(')');
             return true;
         }
         if (tok->type != TIDENT)
@@ -451,7 +447,7 @@ static bool read_funclike_macro_params(Dict *param) {
         char *arg = tok->sval;
         tok = read_cpp_token();
         if (is_ident(tok, "...")) {
-            expect_cpp(')');
+            expect(')');
             dict_put(param, arg, make_macro_token(pos++, true));
             return true;
         }
@@ -532,7 +528,7 @@ static Token *read_defined_op(void) {
     Token *tok = read_cpp_token();
     if (is_punct(tok, '(')) {
         tok = read_cpp_token();
-        expect_cpp(')');
+        expect(')');
     }
     if (tok->type != TIDENT)
         error("Identifier expected, but got %s", t2s(tok));
@@ -666,7 +662,6 @@ static char *read_cpp_header_name(bool *std) {
     return join_tokens(tokens, false);
 }
 
-#ifndef __eir__
 static bool try_include(char *dir, char *filename) {
     char *path = format("%s/%s", dir, filename);
     FILE *fp = fopen(path, "r");
@@ -675,12 +670,8 @@ static bool try_include(char *dir, char *filename) {
     push_input_file(path, path, fp);
     return true;
 }
-#endif
 
 static void read_include(void) {
-#ifdef __eir__
-    assert(0);
-#else
     bool std;
     char *filename = read_cpp_header_name(&std);
     expect_newline();
@@ -698,7 +689,6 @@ static void read_include(void) {
             return;
     }
     error("Cannot find header file: %s", filename);
-#endif
 }
 
 /*----------------------------------------------------------------------
@@ -755,7 +745,6 @@ static void read_directive(void) {
  * Special macros
  */
 
-#ifndef __eir__
 static struct tm *gettime(void) {
     if (current_time)
         return current_time;
@@ -764,31 +753,22 @@ static struct tm *gettime(void) {
     localtime_r(&timet, current_time);
     return current_time;
 }
-#endif
 
 static void handle_date_macro(Token *tmpl) {
-#ifdef __eir__
-    assert(0);
-#else
     Token *tok = copy_token(tmpl);
     tok->type = TSTRING;
     char *month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
     struct tm *now = gettime();
     tok->sval = format("%s %02d %04d", month[now->tm_mon], now->tm_mday, 1900 + now->tm_year);
     unget_token(tok);
-#endif
 }
 
 static void handle_time_macro(Token *tmpl) {
-#ifdef __eir__
-    assert(0);
-#else
     Token *tok = copy_token(tmpl);
     tok->type = TSTRING;
     struct tm *now = gettime();
     tok->sval = format("%02d:%02d:%02d", now->tm_hour, now->tm_min, now->tm_sec);
     unget_token(tok);
-#endif
 }
 
 static void handle_file_macro(Token *tmpl) {
@@ -824,12 +804,7 @@ static char *drop_last_slash(char *s) {
     char *r = format("%s", s);
     char *p = r + strlen(r) - 1;
     if (*p == '/')
-#ifdef __eir__
-        // TODO: 8cc cannot preprocess this properly
-        *p = 0;
-#else
         *p = '\0';
-#endif
     return r;
 }
 
@@ -850,13 +825,11 @@ static void define_special_macro(char *name, special_macro_handler *fn) {
 }
 
 void cpp_init(void) {
-#if 0
     list_unshift(std_include_path, "/usr/include/x86_64-linux-gnu");
     list_unshift(std_include_path, "/usr/include/linux");
     list_unshift(std_include_path, "/usr/include");
     list_unshift(std_include_path, "/usr/local/include");
     list_unshift(std_include_path, "./include");
-#endif
 
     define_special_macro("__DATE__", handle_date_macro);
     define_special_macro("__TIME__", handle_time_macro);
@@ -866,7 +839,9 @@ void cpp_init(void) {
     define_special_macro("__COUNTER__", handle_counter_macro);
 
     char *predefined[] = {
-        "__8cc__", "__eir__", "__STDC__", "__STDC_HOSTED__" };
+        "__8cc__", "__amd64", "__amd64__", "__x86_64", "__x86_64__",
+        "linux", "__linux", "__linux__", "__gnu_linux__", "__unix", "__unix__",
+        "_LP64", "__LP64__", "__ELF__", "__STDC__", "__STDC_HOSTED__" };
 
     for (int i = 0; i < sizeof(predefined) / sizeof(*predefined); i++)
         define_obj_macro(predefined[i], cpp_token_one);

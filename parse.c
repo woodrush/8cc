@@ -7,6 +7,7 @@
 
 #include <ctype.h>
 #include <limits.h>
+#include <setjmp.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -24,26 +25,24 @@ static Dict *struct_defs = &EMPTY_DICT;
 static Dict *union_defs = &EMPTY_DICT;
 static List *gotos;
 static Dict *labels;
-static List *toplevels;
 static List *localvars;
 static Ctype *current_func_type;
 
 Ctype *ctype_void = &(Ctype){ CTYPE_VOID, 0, true };
 Ctype *ctype_bool = &(Ctype){ CTYPE_BOOL, 1, false };
 Ctype *ctype_char = &(Ctype){ CTYPE_CHAR, 1, true };
-Ctype *ctype_short = &(Ctype){ CTYPE_SHORT, 1, true };
-Ctype *ctype_int = &(Ctype){ CTYPE_INT, 1, true };
-Ctype *ctype_long = &(Ctype){ CTYPE_LONG, 1, true };
+Ctype *ctype_short = &(Ctype){ CTYPE_SHORT, 2, true };
+Ctype *ctype_int = &(Ctype){ CTYPE_INT, 4, true };
+Ctype *ctype_long = &(Ctype){ CTYPE_LONG, 8, true };
 Ctype *ctype_float = &(Ctype){ CTYPE_FLOAT, 4, true };
 Ctype *ctype_double = &(Ctype){ CTYPE_DOUBLE, 8, true };
 Ctype *ctype_ldouble = &(Ctype){ CTYPE_LDOUBLE, 16, true };
-static Ctype *ctype_uint = &(Ctype){ CTYPE_INT, 1, false };
-static Ctype *ctype_ulong = &(Ctype){ CTYPE_LONG, 1, false };
-static Ctype *ctype_llong = &(Ctype){ CTYPE_LLONG, 1, true };
-static Ctype *ctype_ullong = &(Ctype){ CTYPE_LLONG, 1, false };
+static Ctype *ctype_uint = &(Ctype){ CTYPE_INT, 4, false };
+static Ctype *ctype_ulong = &(Ctype){ CTYPE_LONG, 8, false };
+static Ctype *ctype_llong = &(Ctype){ CTYPE_LLONG, 8, true };
+static Ctype *ctype_ullong = &(Ctype){ CTYPE_LLONG, 8, false };
 
 static int labelseq = 0;
-static int staticseq = 0;
 
 typedef Node *MakeVarFn(Ctype *ctype, char *name);
 
@@ -93,10 +92,6 @@ char *make_label(void) {
     return format(".L%d", labelseq++);
 }
 
-static char *make_static_label(char *name) {
-    return format(".S%d.%s", staticseq++, name);
-}
-
 static Node *make_ast(Node *tmpl) {
     Node *r = malloc(sizeof(Node));
     *r = *tmpl;
@@ -118,6 +113,10 @@ static Node *ast_inttype(Ctype *ctype, long val) {
     return make_ast(&(Node){ AST_LITERAL, ctype, .ival = val });
 }
 
+static Node *ast_floattype(Ctype *ctype, double val) {
+    return make_ast(&(Node){ AST_LITERAL, ctype, .fval = val });
+}
+
 static Node *ast_lvar(Ctype *ctype, char *name) {
     Node *r = make_ast(&(Node){ AST_LVAR, ctype, .varname = name });
     if (localenv)
@@ -130,17 +129,6 @@ static Node *ast_lvar(Ctype *ctype, char *name) {
 static Node *ast_gvar(Ctype *ctype, char *name) {
     Node *r = make_ast(&(Node){ AST_GVAR, ctype, .varname = name, .glabel = name });
     dict_put(globalenv, name, r);
-    return r;
-}
-
-static Node *ast_static_lvar(Ctype *ctype, char *name) {
-    Node *r = make_ast(&(Node){
-        .type = AST_GVAR,
-        .ctype = ctype,
-        .varname = name,
-        .glabel = make_static_label(name) });
-    assert(localenv);
-    dict_put(localenv, name, r);
     return r;
 }
 
@@ -290,10 +278,10 @@ static Ctype *make_numtype(int type, bool sig) {
     if (type == CTYPE_VOID)         r->size = 0;
     else if (type == CTYPE_BOOL)    r->size = 1;
     else if (type == CTYPE_CHAR)    r->size = 1;
-    else if (type == CTYPE_SHORT)   r->size = 1;
-    else if (type == CTYPE_INT)     r->size = 1;
-    else if (type == CTYPE_LONG)    r->size = 1;
-    else if (type == CTYPE_LLONG)   r->size = 1;
+    else if (type == CTYPE_SHORT)   r->size = 2;
+    else if (type == CTYPE_INT)     r->size = 4;
+    else if (type == CTYPE_LONG)    r->size = 8;
+    else if (type == CTYPE_LLONG)   r->size = 8;
     else if (type == CTYPE_FLOAT)   r->size = 4;
     else if (type == CTYPE_DOUBLE)  r->size = 8;
     else if (type == CTYPE_LDOUBLE) r->size = 16;
@@ -302,12 +290,12 @@ static Ctype *make_numtype(int type, bool sig) {
 }
 
 static Ctype* make_ptr_type(Ctype *ctype) {
-    return make_type(&(Ctype){ CTYPE_PTR, .ptr = ctype, .size = 1 });
+    return make_type(&(Ctype){ CTYPE_PTR, .ptr = ctype, .size = 8 });
 }
 
 static Ctype* make_array_type(Ctype *ctype, int len) {
     int size;
-    if (len == -1)
+    if (len < 0)
         size = -1;
     else
         size = ctype->size * len;
@@ -551,7 +539,7 @@ int eval_intexpr(Node *node) {
             return node->ival;
         error("Integer expression expected, but got %s", a2s(node));
     case '!': return !eval_intexpr(node->operand);
-    case '~': assert(0);
+    case '~': return ~eval_intexpr(node->operand);
     case OP_UMINUS: return -eval_intexpr(node->operand);
     case OP_CAST: return eval_intexpr(node->operand);
     case AST_CONV: return eval_intexpr(node->operand);
@@ -569,16 +557,16 @@ int eval_intexpr(Node *node) {
     case '/': return L / R;
     case '<': return L < R;
     case '>': return L > R;
-    case '^': assert(0);
-    case '&': assert(0);
+    case '^': return L ^ R;
+    case '&': return L & R;
     case '%': return L % R;
     case OP_EQ: return L == R;
     case OP_GE: return L >= R;
     case OP_LE: return L <= R;
     case OP_NE: return L != R;
-    case OP_SAL: assert(0);
-    case OP_SAR: assert(0);
-    case OP_SHR: assert(0);
+    case OP_SAL: return L << R;
+    case OP_SAR: return L >> R;
+    case OP_SHR: return ((unsigned long)L) >> R;
     case OP_LOGAND: return L && R;
     case OP_LOGOR:  return L || R;
 #undef L
@@ -605,16 +593,9 @@ static Node *read_int(char *s) {
     } else if (strncasecmp(s, "0b", 2) == 0) {
         base = 2;
         p += 2;
-#ifdef __eir__
-    // TODO: 8cc cannot preprocess this properly
-    } else if (s[0] == '0' && s[1] != 0) {
-        base = 8;
-        p++;
-#else
     } else if (s[0] == '0' && s[1] != '\0') {
         base = 8;
         p++;
-#endif
     }
     char *digits = p;
     while (isxdigit(*p)) {
@@ -636,26 +617,35 @@ static Node *read_int(char *s) {
         return ast_inttype(ctype_llong, strtoll(s, NULL, base));
     if (!strcasecmp(p, "ull") || !strcasecmp(p, "llu"))
         return ast_inttype(ctype_ullong, strtoull(s, NULL, base));
-#ifdef __eir__
-    // TODO: 8cc cannot preprocess this properly
-    if (*p != 0)
-        error("invalid suffix '%c': %s", *p, s);
-#else
     if (*p != '\0')
         error("invalid suffix '%c': %s", *p, s);
-#endif
     long val = strtol(digits, NULL, base);
-#ifdef __eir__
-    return ast_inttype(ctype_int, val);
-#else
     return (val & ~(long)UINT_MAX)
         ? ast_inttype(ctype_long, val)
         : ast_inttype(ctype_int, val);
-#endif
 }
 
-static Node *read_number_parse(char *s) {
-    return read_int(s);
+static Node *read_float(char *s) {
+    char *p = s;
+    char *endptr;
+    while (p[1]) p++;
+    Node *r;
+    if (*p == 'l' || *p == 'L') {
+        r = ast_floattype(ctype_ldouble, strtold(s, &endptr));
+    } else if (*p == 'f' || *p == 'F') {
+        r = ast_floattype(ctype_float, strtof(s, &endptr));
+    } else {
+        r = ast_floattype(ctype_double, strtod(s, &endptr));
+        p++;
+    }
+    if (endptr != p)
+        error("malformed floating constant: %s", s);
+    return r;
+}
+
+static Node *read_number(char *s) {
+    bool isfloat = strpbrk(s, ".pe");
+    return isfloat ? read_float(s) : read_int(s);
 }
 
 /*----------------------------------------------------------------------
@@ -900,7 +890,7 @@ static Node *read_primary_expr(void) {
     case TIDENT:
         return read_var_or_func(tok->sval);
     case TNUMBER:
-        return read_number_parse(tok->sval);
+        return read_number(tok->sval);
     case TCHAR:
         return ast_inttype(ctype_int, tok->c);
     case TSTRING:
@@ -1353,10 +1343,24 @@ static Dict *update_struct_offset(List *fields, int *rsize) {
             bitoff = 0;
             continue;
         }
-        finish_bitfield(&off, &bitoff);
-        off += compute_padding(off, fieldtype);
-        fieldtype->offset = off;
-        off += fieldtype->size;
+        if (fieldtype->bitsize >= 0) {
+            int room = fieldtype->size * 8 - bitoff;
+            if (0 <= bitoff && fieldtype->bitsize <= room) {
+                fieldtype->bitoff = bitoff;
+                fieldtype->offset = off;
+            } else {
+                finish_bitfield(&off, &bitoff);
+                off += compute_padding(off, fieldtype);
+                fieldtype->offset = off;
+                fieldtype->bitoff = 0;
+            }
+            bitoff = fieldtype->bitsize;
+        } else {
+            finish_bitfield(&off, &bitoff);
+            off += compute_padding(off, fieldtype);
+            fieldtype->offset = off;
+            off += fieldtype->size;
+        }
         dict_put(r, name, fieldtype);
     }
     finish_bitfield(&off, &bitoff);
@@ -1778,11 +1782,7 @@ static Ctype *read_decl_spec(int *rsclass) {
     if (!is_type_keyword(tok))
         error("type keyword expected, but got %s", t2s(tok));
 
-#ifdef __eir__
-#define unused
-#else
 #define unused __attribute__((unused))
-#endif
     bool kconst unused = false, kvolatile unused = false, kinline unused = false;
 #undef unused
     Ctype *usertype = NULL;
@@ -1893,18 +1893,6 @@ static Ctype *read_decl_spec(int *rsclass) {
  * Declaration
  */
 
-static void read_static_local_var(Ctype *ty, char *name) {
-    Node *var = ast_static_lvar(ty, name);
-    List *init = NULL;
-    if (next_token('=')) {
-        Dict *orig = localenv;
-        localenv = NULL;
-        init = read_decl_init(ty);
-        localenv = orig;
-    }
-    list_push(toplevels, ast_decl(var, init));
-}
-
 static void read_decl(List *block, MakeVarFn *make_var) {
     int sclass;
     Ctype *basetype = read_decl_spec(&sclass);
@@ -1924,9 +1912,6 @@ static void read_decl(List *block, MakeVarFn *make_var) {
             tok = read_token();
         } else if (sclass == S_TYPEDEF) {
             ast_typedef(ctype, name);
-        } else if (ctype->isstatic && make_var != ast_gvar) {
-            ensure_not_void(ctype);
-            read_static_local_var(ctype, name);
         } else if (ctype->type == CTYPE_FUNC) {
             make_var(ctype, name);
         } else {
@@ -2239,14 +2224,14 @@ static void read_decl_or_stmt(List *list) {
  */
 
 List *read_toplevels(void) {
-    toplevels = make_list();
+    List *r = make_list();
     for (;;) {
         if (!peek_token())
-            return toplevels;
+            return r;
         if (is_funcdef())
-            list_push(toplevels, read_funcdef());
+            list_push(r, read_funcdef());
         else
-            read_decl(toplevels, ast_gvar);
+            read_decl(r, ast_gvar);
     }
 }
 

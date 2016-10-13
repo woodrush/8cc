@@ -29,9 +29,9 @@ static char *c2s_int(Dict *dict, Ctype *ctype) {
         return format("[%d]%s", ctype->len, c2s_int(dict, ctype->ptr));
     case CTYPE_STRUCT: {
         char *type = ctype->is_struct ? "struct" : "union";
-        if (dict_get(dict, format("%x", ctype)))
+        if (dict_get(dict, format("%p", ctype)))
             return format("(%s)", type);
-        dict_put(dict, format("%x", ctype), (void *)1);
+        dict_put(dict, format("%p", ctype), (void *)1);
         String *s = make_string();
         string_appendf(s, "(%s", type);
         for (Iter *i = list_iter(dict_values(ctype->fields)); !iter_end(i);) {
@@ -91,24 +91,21 @@ static void a2s_int(String *buf, Node *node) {
         case CTYPE_CHAR:
             if (node->ival == '\n')      string_appendf(buf, "'\n'");
             else if (node->ival == '\\') string_appendf(buf, "'\\\\'");
-#ifdef __eir__
-            // TODO: 8cc cannot preprocess this properly
-            else if (node->ival == 0) string_appendf(buf, "'\\0'");
-#else
             else if (node->ival == '\0') string_appendf(buf, "'\\0'");
-#endif
             else string_appendf(buf, "'%c'", node->ival);
             break;
         case CTYPE_INT:
-        case CTYPE_LONG:
             string_appendf(buf, "%d", node->ival);
+            break;
+        case CTYPE_LONG:
+            string_appendf(buf, "%ldL", node->ival);
             break;
         case CTYPE_FLOAT:
         case CTYPE_DOUBLE:
-            assert(0);
+            string_appendf(buf, "%f", node->fval);
             break;
         default:
-            error("internal error: %d", node->type);
+            error("internal error");
         }
         break;
     case AST_STRING:

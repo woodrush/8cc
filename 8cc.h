@@ -53,7 +53,7 @@ typedef struct {
     union {
         char *sval;
         int punct;
-        int c;
+        char c;
         int position;
     };
 } Token;
@@ -158,6 +158,11 @@ typedef struct Node {
     union {
         // Char, int, or long
         long ival;
+        // Float or double
+        struct {
+            double fval;
+            char *flabel;
+        };
         // String
         struct {
             char *sval;

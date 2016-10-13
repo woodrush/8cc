@@ -7,27 +7,6 @@
 #include <string.h>
 #include "8cc.h"
 
-#ifdef __eir__
-static int g_buf = -1;
-
-static int getc(FILE* fp) {
-  int r;
-  if (g_buf != -1) {
-    r = g_buf;
-    g_buf = -1;
-  } else {
-    r = getchar();
-    if (r == -1)
-      return EOF;
-  }
-  return r;
-}
-
-static void ungetc(int c) {
-  g_buf = c;
-}
-#endif
-
 static bool at_bol = true;
 
 typedef struct {
@@ -61,9 +40,6 @@ static File *make_file(char *displayname, char *realname, FILE *fp) {
 }
 
 void lex_init(char *filename) {
-#ifdef __eir__
-    set_input_file("(stdin)", NULL, stdin);
-#else
     if (!strcmp(filename, "-")) {
         set_input_file("(stdin)", NULL, stdin);
         return;
@@ -75,7 +51,6 @@ void lex_init(char *filename) {
         error("Cannot open %s: %s", filename, buf);
     }
     set_input_file(filename, filename, fp);
-#endif
 }
 
 static Token *make_token(Token *tmpl) {
@@ -102,11 +77,11 @@ static Token *make_punct(int punct) {
     return make_token(&(Token){ TPUNCT, .nspace = 0, .punct = punct });
 }
 
-static Token *make_number_lex(char *s) {
+static Token *make_number(char *s) {
     return make_token(&(Token){ TNUMBER, .nspace = 0, .sval = s });
 }
 
-static Token *make_char(unsigned char c) {
+static Token *make_char(char c) {
     return make_token(&(Token){ TCHAR, .nspace = 0, .c = c });
 }
 
@@ -159,7 +134,7 @@ static void mark_input(void) {
 static void unget(int c) {
     if (c == '\n')
         file->line--;
-    if (ungotten != -1)
+    if (ungotten >= 0)
         ungetc(ungotten, file->fp);
     ungotten = c;
     file->column--;
@@ -179,7 +154,7 @@ static bool skip_newline(int c) {
 }
 
 static int get(void) {
-    int c = (ungotten != -1) ? ungotten : getc(file->fp);
+    int c = (ungotten >= 0) ? ungotten : getc(file->fp);
     file->column++;
     ungotten = -1;
     if (c == '\\') {
@@ -309,7 +284,7 @@ static Token *read_number(char c) {
         int c = get();
         if (!isdigit(c) && !isalpha(c) && c != '.') {
             unget(c);
-            return make_number_lex(get_cstring(s));
+            return make_number(get_cstring(s));
         }
         string_append(s, c);
     }
@@ -319,10 +294,10 @@ static int read_octal_char(int c) {
     int r = c - '0';
     c = get();
     if ('0' <= c && c <= '7') {
-        r = (r * 8) + (c - '0');
+        r = (r << 3) | (c - '0');
         c = get();
         if ('0' <= c && c <= '7')
-            r = (r * 8) + (c - '0');
+            r = (r << 3) | (c - '0');
         else
             unget(c);
     } else {
@@ -338,9 +313,9 @@ static int read_hex_char(void) {
         error("\\x is not followed by a hexadecimal character: %c", c);
     for (;; c = get()) {
         switch (c) {
-        case '0' ... '9': r = (r * 16) + (c - '0'); continue;
-        case 'a' ... 'f': r = (r * 16) + (c - 'a' + 10); continue;
-        case 'A' ... 'F': r = (r * 16) + (c - 'A' + 10); continue;
+        case '0' ... '9': r = (r << 4) | (c - '0'); continue;
+        case 'a' ... 'f': r = (r << 4) | (c - 'a' + 10); continue;
+        case 'A' ... 'F': r = (r << 4) | (c - 'A' + 10); continue;
         default: unget(c); return r;
         }
     }
@@ -395,7 +370,7 @@ static Token *read_string(void) {
     return make_strtok(get_cstring(s));
 }
 
-static Token *read_ident_lex(char c) {
+static Token *read_ident(char c) {
     String *s = make_string();
     string_append(s, c);
     for (;;) {
@@ -452,11 +427,11 @@ static Token *read_token_int(void) {
     case 'L':
         if (next('"'))  return read_string();
         if (next('\'')) return read_char();
-        return read_ident_lex('L');
+        return read_ident('L');
     case '0' ... '9':
         return read_number(c);
     case 'a' ... 'z': case 'A' ... 'K': case 'M' ... 'Z': case '_': case '$':
-        return read_ident_lex(c);
+        return read_ident(c);
     case '/': {
         if (next('/')) {
             skip_line();
@@ -558,14 +533,8 @@ char *read_header_file_name(bool *std) {
             break;
         string_append(s, c);
     }
-#ifdef __eir__
-    // TODO: 8cc cannot preprocess this properly
-    if (get_cstring(s)[0] == 0)
-        error("header name should not be empty");
-#else
     if (get_cstring(s)[0] == '\0')
         error("header name should not be empty");
-#endif
     return get_cstring(s);
 }
 

@@ -18,7 +18,6 @@ static bool dontlink;
 static String *cppdefs;
 static List *tmpfiles = &EMPTY_LIST;
 
-#ifndef __eir__
 static void usage(void) {
     fprintf(stderr,
             "Usage: 8cc [ -E ][ -a ] [ -h ] <file>\n\n"
@@ -38,15 +37,12 @@ static void usage(void) {
             "One of -a, -c, -E or -S must be specified.\n\n");
     exit(1);
 }
-#endif
 
-#ifndef __eir__
 static void delete_temp_files(void) {
     Iter *iter = list_iter(tmpfiles);
     while (!iter_end(iter))
         unlink(iter_next(iter));
 }
-#endif
 
 static char *replace_suffix(char *filename, char suffix) {
     char *r = format("%s", filename);
@@ -58,9 +54,6 @@ static char *replace_suffix(char *filename, char suffix) {
 }
 
 static FILE *open_output_file(void) {
-#ifdef __eir__
-    return stdout;
-#else
     if (!outputfile) {
         if (dontasm) {
             outputfile = replace_suffix(inputfile, 's');
@@ -77,7 +70,6 @@ static FILE *open_output_file(void) {
     if (!fp)
         perror("fopen");
     return fp;
-#endif
 }
 
 static void parse_debug_arg(char *s) {
@@ -91,7 +83,6 @@ static void parse_debug_arg(char *s) {
     }
 }
 
-#ifndef __eir__
 static void parseopt(int argc, char **argv) {
     cppdefs = make_string();
     for (;;) {
@@ -142,7 +133,6 @@ static void parseopt(int argc, char **argv) {
         error("One of -a, -c, -E or -S must be specified");
     inputfile = argv[optind];
 }
-#endif
 
 static void preprocess(void) {
     for (;;) {
@@ -151,14 +141,8 @@ static void preprocess(void) {
             break;
         if (tok->bol)
             printf("\n");
-#ifdef __eir__
-        int i;
-        for (i = 0; i < tok->nspace; i++)
-            putchar(' ');
-#else
         if (tok->nspace)
             printf("%*c", tok->nspace, ' ');
-#endif
         printf("%s", t2s(tok));
     }
     printf("\n");
@@ -166,20 +150,14 @@ static void preprocess(void) {
 }
 
 int main(int argc, char **argv) {
-#ifndef __eir__
     setbuf(stdout, NULL);
     if (atexit(delete_temp_files))
         perror("atexit");
-#endif
     cpp_init();
     parse_init();
-#ifndef __eir__
     parseopt(argc, argv);
     if (string_len(cppdefs) > 0)
         cpp_eval(get_cstring(cppdefs));
-#else
-    dontasm = true;
-#endif
     lex_init(inputfile);
     set_output_file(open_output_file());
 
@@ -199,7 +177,6 @@ int main(int argc, char **argv) {
 
     close_output_file();
 
-#ifndef __eir__
     if (!wantast && !dontasm) {
         char *objfile = replace_suffix(inputfile, 'o');
         pid_t pid = fork();
@@ -213,6 +190,5 @@ int main(int argc, char **argv) {
         if (status < 0)
             error("as failed");
     }
-#endif
     return 0;
 }
