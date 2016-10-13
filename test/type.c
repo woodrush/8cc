@@ -1,11 +1,10 @@
-// Copyright 2012 Rui Ueyama <rui314@gmail.com>
-// This program is free software licensed under the MIT license.
+// Copyright 2012 Rui Ueyama. Released under the MIT license.
 
 #include "test.h"
 #include <stdbool.h>
 #include <stddef.h>
 
-void test_type(void) {
+static void test_type() {
     char a;
     short b;
     int c;
@@ -13,16 +12,16 @@ void test_type(void) {
     long long e;
     short int f;
     long int g;
-    long long int f;
-    long int long g;
-    float h;
-    double i;
-    long double j;
-    _Bool k;
-    bool l;
+    long long int h;
+    long int long i;
+    float j;
+    double k;
+    long double l;
+    _Bool m;
+    bool n;
 }
 
-void test_signed(void) {
+static void test_signed() {
     signed char a;
     signed short b;
     signed int c;
@@ -30,10 +29,10 @@ void test_signed(void) {
     signed long long e;
     signed short int f;
     signed long int g;
-    signed long long int f;
+    signed long long int h;
 }
 
-void test_unsigned(void) {
+static void test_unsigned() {
     unsigned char a;
     unsigned short b;
     unsigned int c;
@@ -41,10 +40,10 @@ void test_unsigned(void) {
     unsigned long long e;
     unsigned short int f;
     unsigned long int g;
-    unsigned long long int f;
+    unsigned long long int h;
 }
 
-void test_storage_class(void) {
+static void test_storage_class() {
     static a;
     auto b;
     register c;
@@ -53,7 +52,7 @@ void test_storage_class(void) {
     register int f;
 }
 
-void test_pointer(void) {
+static void test_pointer() {
     int *a;
     expect(8, sizeof(a));
     int *b[5];
@@ -62,11 +61,11 @@ void test_pointer(void) {
     expect(8, sizeof(c));
 }
 
-void test_unusual_order(void) {
+static void test_unusual_order() {
     int unsigned auto * const * const a;
 }
 
-void test_typedef(void) {
+static void test_typedef() {
     typedef int integer;
     integer a = 5;
     expect(5, a);
@@ -80,17 +79,26 @@ void test_typedef(void) {
     c.x = 5;
     expect(5, c.x);
 
-    typedef int mytype1;
-    typedef int mytype2;
-    mytype1 mytype2 = 3;
-    expect(3, mytype2);
+    typedef char x;
+    {
+        int x = 3;
+        expect(3, x);
+    }
+    {
+        int a = sizeof(x), x = 5, c = sizeof(x);
+        expect(1, a);
+        expect(5, x);
+        expect(4, c);
+    }
 }
 
-void test_align(void) {
-    expect(16, sizeof(max_align_t));
+static void test_align() {
+#ifdef __8cc__
+    expect(8, sizeof(max_align_t));
+#endif
 }
 
-void testmain(void) {
+void testmain() {
     print("type system");
     test_type();
     test_signed();

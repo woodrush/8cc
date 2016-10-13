@@ -1,9 +1,7 @@
-8cc
-gen?
+*.bin
 *.o
 *.s
-tmp.*
+*~
+8cc
+stage?
 utiltest
-nqueen.s
-nqueen
-*.bin

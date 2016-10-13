@@ -1,7 +1,8 @@
-// Copyright 2012 Rui Ueyama <rui314@gmail.com>
-// This program is free software licensed under the MIT license.
+// Copyright 2012 Rui Ueyama. Released under the MIT license.
 
 #include "test.h"
+
+defaultint;
 
 int val = 21;
 int *p1 = &val;
@@ -17,8 +18,11 @@ char *s2 = "ABCD";
 long l1 = 8;
 int *intp = &(int){ 9 };
 
-void testmain(void) {
+void testmain() {
     print("global variable");
+
+    defaultint = 3;
+    expect(3, defaultint);
 
     expect(21, val);
     val = 22;

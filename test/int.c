@@ -1,9 +1,8 @@
-// Copyright 2012 Rui Ueyama <rui314@gmail.com>
-// This program is free software licensed under the MIT license.
+// Copyright 2012 Rui Ueyama. Released under the MIT license.
 
 #include "test.h"
 
-void expects(short a, short b) {
+static void expects(short a, short b) {
     if (!(a == b)) {
         printf("Failed\n");
         printf("  %d expected, but got %d\n", a, b);
@@ -11,7 +10,7 @@ void expects(short a, short b) {
     }
 }
 
-void testmain(void) {
+void testmain() {
     print("long");
 
     short a = 10;
@@ -24,6 +23,7 @@ void testmain(void) {
     expectl(67, x);
     expectl(136, x + y);
     expectl(10L, 10L);
+    expectl(4294967295L, 4294967295);
     expectl(1152921504606846976, 1152921504606846976);
     expectl(1152921504606846977, 1152921504606846976 + 1);
 }

@@ -1,16 +1,34 @@
-// Copyright 2012 Rui Ueyama <rui314@gmail.com>
-// This program is free software licensed under the MIT license.
+// Copyright 2012 Rui Ueyama. Released under the MIT license.
 
+#include <locale.h>
+#include <stddef.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
 #include "test.h"
 
-void special(void) {
-    expect_string("test/macro.c", __FILE__);
-    expect(8, __LINE__);
-    expect(11, strlen(__DATE__));
-    expect(8, strlen(__TIME__));
+static char *get_timestamp() {
+    static char buf[30];
+    struct stat s;
+    stat(__FILE__, &s);
+    setlocale(LC_ALL, "C");
+    strftime(buf, 30, "%a %b %e %T %Y", localtime(&s.st_mtime));
+    return buf;
 }
 
-void include(void) {
+static void special() {
+    expect_string("test/macro.c", __FILE__);
+    expect(22, __LINE__);
+    expect(11, strlen(__DATE__));
+    expect(8, strlen(__TIME__));
+    expect(24, strlen(__TIMESTAMP__));
+    expect(0, __INCLUDE_LEVEL__);
+    expect_string("test/macro.c", __BASE_FILE__);
+    expect_string(get_timestamp(), __TIMESTAMP__);
+}
+
+static void include() {
 #include "macro1.h"
     expect_string("macro1", MACRO_1);
 
@@ -23,13 +41,19 @@ void include(void) {
 # error test failed
 #endif
 #include STDBOOL_H_FILE
-#ifndef __STDBOOL_H
+#ifndef __bool_true_false_are_defined
 # error test failed
 #endif
 }
 
-void predefined(void) {
+static void predefined() {
+#ifdef __8cc__
     expect(1, __8cc__);
+    expect(1, __STDC_NO_ATOMICS__);
+    expect(1, __STDC_NO_COMPLEX__);
+    expect(1, __STDC_NO_THREADS__);
+    expect(1, __STDC_NO_VLA__);
+#endif
     expect(1, __amd64);
     expect(1, __amd64__);
     expect(1, __x86_64);
@@ -45,7 +69,9 @@ void predefined(void) {
     expect(1, __ELF__);
     expect(1, __STDC__);
     expect(1, __STDC_HOSTED__);
-    expect(199901, __STDC_VERSION__);
+    expect(1, __STDC_UTF_16__);
+    expect(1, __STDC_UTF_32__);
+    expect(201112, __STDC_VERSION__);
 
     expect(2, __SIZEOF_SHORT__);
     expect(4, __SIZEOF_INT__);
@@ -56,7 +82,9 @@ void predefined(void) {
     expect(8, __SIZEOF_POINTER__);
     expect(8, __SIZEOF_PTRDIFF_T__);
     expect(8, __SIZEOF_SIZE_T__);
-    expect(16, __SIZEOF_LONG_DOUBLE__);
+#ifdef __8cc__
+    expect(8, __SIZEOF_LONG_DOUBLE__);
+#endif
 
     expect(sizeof(short), __SIZEOF_SHORT__);
     expect(sizeof(int), __SIZEOF_INT__);
@@ -75,7 +103,7 @@ void predefined(void) {
 #define TWO ONE + ONE
 #define LOOP LOOP
 
-void simple(void) {
+static void simple() {
     expect(1, ONE);
     expect(2, TWO);
 }
@@ -83,14 +111,14 @@ void simple(void) {
 #define VAR1 VAR2
 #define VAR2 VAR1
 
-void loop(void) {
+static void loop() {
     int VAR1 = 1;
     int VAR2 = 2;
     expect(1, VAR1);
     expect(2, VAR2);
 }
 
-void undef(void) {
+static void undef() {
     int a = 3;
 #define a 10
     expect(10, a);
@@ -101,12 +129,29 @@ void undef(void) {
 #undef a
 }
 
-void cond_incl(void) {
+static void cond_incl() {
     int a = 1;
 #if 0
     a = 2;
 #endif
     expect(1, a);
+
+#if 0
+    fail("if 0");
+xyz    /*
+#else
+abc    */
+    fail("if 0");
+#endif
+
+/*
+ */#if 0
+    fail("if 0");
+xyz "\"/*" '\'/*'
+#else
+    a = 5;
+#endif
+    expect(a, 5);
 
 #if 0
 #elif 1
@@ -149,7 +194,7 @@ void cond_incl(void) {
     expect(150, a);
 }
 
-void const_expr(void) {
+static void const_expr() {
     int a = 1;
 #if 0 + 1
     a = 2;
@@ -195,6 +240,12 @@ void const_expr(void) {
 #endif
     expect(104, a);
 
+#if 0
+    fail("#if");
+#elif 0
+    fail("#elif");
+#endif
+
 #if 0 + 0
     a = 6;
 #else
@@ -209,22 +260,29 @@ void const_expr(void) {
 #endif
     expect(9, a);
 
+#if NO_SUCH_MACRO
+    a = 14;
+#else
+    a = 15;
+#endif
+    expect(15, a);
+
 #if LOOP
     a = 10;
 #else
     a = 11;
 #endif
-    expect(10, a);
+    expect(11, a);
 
 #if LOOP - 1
     a = 12;
 #else
     a = 13;
 #endif
-    expect(13, a);
+    expect(12, a);
 }
 
-void defined(void) {
+static void defined() {
     int a = 0;
 #if defined ZERO
     a = 1;
@@ -242,7 +300,7 @@ void defined(void) {
     expect(4, a);
 }
 
-void ifdef(void) {
+static void ifdef() {
     int a = 0;
 #ifdef ONE
     a = 1;
@@ -283,7 +341,7 @@ int minus(int a, int b) {
     return a - b;
 }
 
-void funclike(void) {
+static void funclike() {
 #define stringify(x) #x
     expect_string("5", stringify(5));
     expect_string("x", stringify(x));
@@ -294,8 +352,17 @@ void funclike(void) {
     expect_string("x+y", stringify( x+y ));
     expect_string("'a'", stringify('a'));
     expect_string("'\\''", stringify('\''));
+    expect_string("L'a'", stringify(L'a'));
+    expect_string("U'a'", stringify(U'a'));
+    expect_string("u'a'", stringify(u'a'));
     expect_string("\"abc\"", stringify("abc"));
+    expect_string("L\"abc\"", stringify(L"abc"));
+    expect_string("U\"abc\"", stringify(U"abc"));
+    expect_string("u\"abc\"", stringify(u"abc"));
+    expect_string("u8\"abc\"", stringify(u8"abc"));
     expect_string("ZERO", stringify(ZERO));
+    expect_string("1 2", stringify(1
+2));
 
 #define m1(x) x
     expect(5, m1(5));
@@ -335,6 +402,15 @@ void funclike(void) {
 #define m8(x, y) x ## y
     expect(2, m8(TW, O));
     expect(0, m8(ZERO,));
+    expect(8, 1 m8(<, <) 3);
+    expectf(.123, m8(., 123));
+    expect('a', m8(L, 'a'));
+    expect('a', m8(U, 'a'));
+    expect('a', m8(u, 'a'));
+    expect_string(L"abc", m8(L, "abc"));
+    expect_string(U"abc", m8(U, "abc"));
+    expect_string(u"abc", m8(u, "abc"));
+    expect_string(u8"abc", m8(u8, "abc"));
 
 #define m9(x, y, z) x y + z
     expect(8, m9(1,, 7));
@@ -362,16 +438,19 @@ void funclike(void) {
     expect_string("aa A B aa C", identity(m10(a) A B m10(a) C));
 
 #define identity2(x) stringify(z ## x)
-    expect_string("zA aa A B aa C", identity2(A m10(a) A B m10(a) C));
+    expect_string("zA m10(a) A B m10(a) C", identity2(A m10(a) A B m10(a) C));
 
 #define m15(x) x x
     expect_string("a a", identity(m15(a)));
 
 #define m16(x) (x,x)
     expect_string("(a,a)", identity(m16(a)));
+
+#define m17(x) stringify(.x . x)
+    expect_string(".3 . 3", m17(3));
 }
 
-void empty(void) {
+static void empty() {
 #define EMPTY
     expect(1, 1 EMPTY);
 #define EMPTY2(x)
@@ -380,30 +459,22 @@ void empty(void) {
     expect(2, 2 EMPTY2(((()))));
 }
 
-void noarg(void) {
+static void noarg() {
 #define NOARG() 55
     expect(55, NOARG());
 }
 
-void line(void) {
-#line 99
-    expect(99, __LINE__);
-#line 199 "foo"
-    expect(199, __LINE__);
-    expect_string("foo", __FILE__);
-}
-
-void null(void) {
+static void null() {
     #
 }
 
-void counter(void) {
+static void counter() {
     expect(0, __COUNTER__);
     expect(1, __COUNTER__);
     expect(2, __COUNTER__);
 }
 
-void gnuext(void) {
+static void gnuext() {
 #define m11(x, y...) stringify(x + y)
     expect_string("2 + 18", m11(2, 18));
     expect_string("2 +", m11(2));
@@ -412,14 +483,16 @@ void gnuext(void) {
     expect_string("(1)", m12(1));
     expect_string("(1, 2)", m12(1, 2));
 
-#define m13(x, y) stringify((x, ## y))
-    expect_string("(1,)", m13(1,));
-    expect_string("(1,2)", m13(1, 2));
+#define m13(x, y) stringify([x y])
+#define m14 1
+    expect_string("[2 2]", m13(m14,
+#undef m14
+#define m14 2
+                               m14));
 }
 
-void testmain(void) {
+void testmain() {
     print("macros");
-
     special();
     include();
     predefined();
@@ -433,7 +506,6 @@ void testmain(void) {
     funclike();
     empty();
     noarg();
-    line();
     null();
     counter();
     gnuext();

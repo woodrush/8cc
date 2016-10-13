@@ -1,299 +1,312 @@
-// Copyright 2012 Rui Ueyama <rui314@gmail.com>
-// This program is free software licensed under the MIT license.
+// Copyright 2012 Rui Ueyama. Released under the MIT license.
 
 #include "8cc.h"
 
-static char *maybe_add_bitfield(char *name, Ctype *ctype) {
-    if (ctype->bitsize > 0)
-        return format("%s:%d:%d", name, ctype->bitoff, ctype->bitoff + ctype->bitsize);
-    return name;
+static char *decorate_int(char *name, Type *ty) {
+    char *u = (ty->usig) ? "u" : "";
+    if (ty->bitsize > 0)
+        return format("%s%s:%d:%d", u, name, ty->bitoff, ty->bitoff + ty->bitsize);
+    return format("%s%s", u, name);
 }
 
-static char *c2s_int(Dict *dict, Ctype *ctype) {
-    if (!ctype)
+static char *do_ty2s(Dict *dict, Type *ty) {
+    if (!ty)
         return "(nil)";
-    switch (ctype->type) {
-    case CTYPE_VOID: return "void";
-    case CTYPE_BOOL: return "_Bool";
-    case CTYPE_CHAR: return maybe_add_bitfield("char", ctype);
-    case CTYPE_SHORT: return maybe_add_bitfield("short", ctype);
-    case CTYPE_INT:  return maybe_add_bitfield("int", ctype);
-    case CTYPE_LONG: return maybe_add_bitfield("long", ctype);
-    case CTYPE_LLONG: return maybe_add_bitfield("long long", ctype);
-    case CTYPE_FLOAT: return "float";
-    case CTYPE_DOUBLE: return "double";
-    case CTYPE_LDOUBLE: return "long double";
-    case CTYPE_PTR:
-        return format("*%s", c2s_int(dict, ctype->ptr));
-    case CTYPE_ARRAY:
-        return format("[%d]%s", ctype->len, c2s_int(dict, ctype->ptr));
-    case CTYPE_STRUCT: {
-        char *type = ctype->is_struct ? "struct" : "union";
-        if (dict_get(dict, format("%p", ctype)))
-            return format("(%s)", type);
-        dict_put(dict, format("%p", ctype), (void *)1);
-        String *s = make_string();
-        string_appendf(s, "(%s", type);
-        for (Iter *i = list_iter(dict_values(ctype->fields)); !iter_end(i);) {
-            Ctype *fieldtype = iter_next(i);
-            string_appendf(s, " (%s)", c2s_int(dict, fieldtype));
+    switch (ty->kind) {
+    case KIND_VOID: return "void";
+    case KIND_BOOL: return "_Bool";
+    case KIND_CHAR: return decorate_int("char", ty);
+    case KIND_SHORT: return decorate_int("short", ty);
+    case KIND_INT:  return decorate_int("int", ty);
+    case KIND_LONG: return decorate_int("long", ty);
+    case KIND_LLONG: return decorate_int("llong", ty);
+    case KIND_FLOAT: return "float";
+    case KIND_DOUBLE: return "double";
+    case KIND_LDOUBLE: return "long double";
+    case KIND_PTR:
+        return format("*%s", do_ty2s(dict, ty->ptr));
+    case KIND_ARRAY:
+        return format("[%d]%s", ty->len, do_ty2s(dict, ty->ptr));
+    case KIND_STRUCT: {
+        char *kind = ty->is_struct ? "struct" : "union";
+        if (dict_get(dict, format("%p", ty)))
+            return format("(%s)", kind);
+        dict_put(dict, format("%p", ty), (void *)1);
+        if (ty->fields) {
+            Buffer *b = make_buffer();
+            buf_printf(b, "(%s", kind);
+            Vector *keys = dict_keys(ty->fields);
+            for (int i = 0; i < vec_len(keys); i++) {
+                char *key = vec_get(keys, i);
+                Type *fieldtype = dict_get(ty->fields, key);
+                buf_printf(b, " (%s)", do_ty2s(dict, fieldtype));
+            }
+            buf_printf(b, ")");
+            return buf_body(b);
         }
-        string_appendf(s, ")");
-        return get_cstring(s);
     }
-    case CTYPE_FUNC: {
-        String *s = make_string();
-        string_appendf(s, "(");
-        for (Iter *i = list_iter(ctype->params); !iter_end(i);) {
-            Ctype *t = iter_next(i);
-            string_appendf(s, "%s", c2s_int(dict, t));
-            if (!iter_end(i))
-                string_append(s, ',');
+    case KIND_FUNC: {
+        Buffer *b = make_buffer();
+        buf_printf(b, "(");
+        if (ty->params) {
+            for (int i = 0; i < vec_len(ty->params); i++) {
+                if (i > 0)
+                    buf_printf(b, ",");
+                Type *t = vec_get(ty->params, i);
+                buf_printf(b, "%s", do_ty2s(dict, t));
+            }
         }
-        string_appendf(s, ")=>%s", c2s_int(dict, ctype->rettype));
-        return get_cstring(s);
+        buf_printf(b, ")=>%s", do_ty2s(dict, ty->rettype));
+        return buf_body(b);
     }
     default:
-        return format("(Unknown ctype: %d)", ctype->type);
+        return format("(Unknown ty: %d)", ty->kind);
     }
 }
 
-char *c2s(Ctype *ctype) {
-    return c2s_int(make_dict(NULL), ctype);
+char *ty2s(Type *ty) {
+    return do_ty2s(make_dict(), ty);
 }
 
-static void uop_to_string(String *buf, char *op, Node *node) {
-    string_appendf(buf, "(%s %s)", op, a2s(node->operand));
+static void uop_to_string(Buffer *b, char *op, Node *node) {
+    buf_printf(b, "(%s %s)", op, node2s(node->operand));
 }
 
-static void binop_to_string(String *buf, char *op, Node *node) {
-    string_appendf(buf, "(%s %s %s)",
-                   op, a2s(node->left), a2s(node->right));
+static void binop_to_string(Buffer *b, char *op, Node *node) {
+    buf_printf(b, "(%s %s %s)", op, node2s(node->left), node2s(node->right));
 }
 
-static void a2s_declinit(String *buf, List *initlist) {
-    for (Iter *i = list_iter(initlist); !iter_end(i);) {
-        Node *init = iter_next(i);
-        string_appendf(buf, "%s", a2s(init));
-        if (!iter_end(i))
-            string_appendf(buf, " ");
+static void a2s_declinit(Buffer *b, Vector *initlist) {
+    for (int i = 0; i < vec_len(initlist); i++) {
+        if (i > 0)
+            buf_printf(b, " ");
+        Node *init = vec_get(initlist, i);
+        buf_printf(b, "%s", node2s(init));
     }
 }
 
-static void a2s_int(String *buf, Node *node) {
+static void do_node2s(Buffer *b, Node *node) {
     if (!node) {
-        string_appendf(buf, "(nil)");
+        buf_printf(b, "(nil)");
         return;
     }
-    switch (node->type) {
+    switch (node->kind) {
     case AST_LITERAL:
-        switch (node->ctype->type) {
-        case CTYPE_CHAR:
-            if (node->ival == '\n')      string_appendf(buf, "'\n'");
-            else if (node->ival == '\\') string_appendf(buf, "'\\\\'");
-            else if (node->ival == '\0') string_appendf(buf, "'\\0'");
-            else string_appendf(buf, "'%c'", node->ival);
+        switch (node->ty->kind) {
+        case KIND_CHAR:
+            if (node->ival == '\n')      buf_printf(b, "'\n'");
+            else if (node->ival == '\\') buf_printf(b, "'\\\\'");
+            else if (node->ival == '\0') buf_printf(b, "'\\0'");
+            else buf_printf(b, "'%c'", node->ival);
             break;
-        case CTYPE_INT:
-            string_appendf(buf, "%d", node->ival);
+        case KIND_INT:
+            buf_printf(b, "%d", node->ival);
             break;
-        case CTYPE_LONG:
-            string_appendf(buf, "%ldL", node->ival);
+        case KIND_LONG:
+            buf_printf(b, "%ldL", node->ival);
             break;
-        case CTYPE_FLOAT:
-        case CTYPE_DOUBLE:
-            string_appendf(buf, "%f", node->fval);
+        case KIND_LLONG:
+            buf_printf(b, "%lldL", node->ival);
+            break;
+        case KIND_FLOAT:
+        case KIND_DOUBLE:
+        case KIND_LDOUBLE:
+            buf_printf(b, "%f", node->fval);
+            break;
+        case KIND_ARRAY:
+            buf_printf(b, "\"%s\"", quote_cstring(node->sval));
             break;
         default:
             error("internal error");
         }
         break;
-    case AST_STRING:
-        string_appendf(buf, "\"%s\"", quote_cstring(node->sval));
+    case AST_LABEL:
+        buf_printf(b, "%s:", node->label);
         break;
     case AST_LVAR:
-        string_appendf(buf, "lv=%s", node->varname);
+        buf_printf(b, "lv=%s", node->varname);
         if (node->lvarinit) {
-            string_appendf(buf, "(");
-            a2s_declinit(buf, node->lvarinit);
-            string_appendf(buf, ")");
+            buf_printf(b, "(");
+            a2s_declinit(b, node->lvarinit);
+            buf_printf(b, ")");
         }
         break;
     case AST_GVAR:
-        string_appendf(buf, "gv=%s", node->varname);
+        buf_printf(b, "gv=%s", node->varname);
         break;
     case AST_FUNCALL:
     case AST_FUNCPTR_CALL: {
-        string_appendf(buf, "(%s)%s(", c2s(node->ctype),
-                       node->type == AST_FUNCALL ? node->fname : a2s(node));
-        for (Iter *i = list_iter(node->args); !iter_end(i);) {
-            string_appendf(buf, "%s", a2s(iter_next(i)));
-            if (!iter_end(i))
-                string_appendf(buf, ",");
+        buf_printf(b, "(%s)%s(", ty2s(node->ty),
+                   node->kind == AST_FUNCALL ? node->fname : node2s(node));
+        for (int i = 0; i < vec_len(node->args); i++) {
+            if (i > 0)
+                buf_printf(b, ",");
+            buf_printf(b, "%s", node2s(vec_get(node->args, i)));
         }
-        string_appendf(buf, ")");
+        buf_printf(b, ")");
         break;
     }
     case AST_FUNCDESG: {
-        string_appendf(buf, "(funcdesg %s)", a2s(node->fptr));
+        buf_printf(b, "(funcdesg %s)", node->fname);
         break;
     }
     case AST_FUNC: {
-        string_appendf(buf, "(%s)%s(", c2s(node->ctype), node->fname);
-        for (Iter *i = list_iter(node->params); !iter_end(i);) {
-            Node *param = iter_next(i);
-            string_appendf(buf, "%s %s", c2s(param->ctype), a2s(param));
-            if (!iter_end(i))
-                string_appendf(buf, ",");
+        buf_printf(b, "(%s)%s(", ty2s(node->ty), node->fname);
+        for (int i = 0; i < vec_len(node->params); i++) {
+            if (i > 0)
+                buf_printf(b, ",");
+            Node *param = vec_get(node->params, i);
+            buf_printf(b, "%s %s", ty2s(param->ty), node2s(param));
         }
-        string_appendf(buf, ")");
-        a2s_int(buf, node->body);
+        buf_printf(b, ")");
+        do_node2s(b, node->body);
         break;
     }
+    case AST_GOTO:
+        buf_printf(b, "goto(%s)", node->label);
+        break;
     case AST_DECL:
-        string_appendf(buf, "(decl %s %s",
-                       c2s(node->declvar->ctype),
-                       node->declvar->varname);
+        buf_printf(b, "(decl %s %s",
+                   ty2s(node->declvar->ty),
+                   node->declvar->varname);
         if (node->declinit) {
-            string_appendf(buf, " ");
-            a2s_declinit(buf, node->declinit);
+            buf_printf(b, " ");
+            a2s_declinit(b, node->declinit);
         }
-        string_appendf(buf, ")");
+        buf_printf(b, ")");
         break;
     case AST_INIT:
-        string_appendf(buf, "%s@%d", a2s(node->initval), node->initoff, c2s(node->totype));
+        buf_printf(b, "%s@%d", node2s(node->initval), node->initoff, ty2s(node->totype));
         break;
     case AST_CONV:
-        string_appendf(buf, "(conv %s=>%s)", a2s(node->operand), c2s(node->ctype));
+        buf_printf(b, "(conv %s=>%s)", node2s(node->operand), ty2s(node->ty));
         break;
     case AST_IF:
-        string_appendf(buf, "(if %s %s",
-                       a2s(node->cond),
-                       a2s(node->then));
+        buf_printf(b, "(if %s %s",
+                   node2s(node->cond),
+                   node2s(node->then));
         if (node->els)
-            string_appendf(buf, " %s", a2s(node->els));
-        string_appendf(buf, ")");
+            buf_printf(b, " %s", node2s(node->els));
+        buf_printf(b, ")");
         break;
     case AST_TERNARY:
-        string_appendf(buf, "(? %s %s %s)",
-                       a2s(node->cond),
-                       a2s(node->then),
-                       a2s(node->els));
-        break;
-    case AST_FOR:
-        string_appendf(buf, "(for %s %s %s %s)",
-                       a2s(node->forinit),
-                       a2s(node->forcond),
-                       a2s(node->forstep),
-                       a2s(node->forbody));
-        break;
-    case AST_WHILE:
-        string_appendf(buf, "(while %s %s)",
-                       a2s(node->forcond),
-                       a2s(node->forbody));
-        break;
-    case AST_DO:
-        string_appendf(buf, "(do %s %s)",
-                       a2s(node->forcond),
-                       a2s(node->forbody));
+        buf_printf(b, "(? %s %s %s)",
+                   node2s(node->cond),
+                   node2s(node->then),
+                   node2s(node->els));
         break;
     case AST_RETURN:
-        string_appendf(buf, "(return %s)", a2s(node->retval));
+        buf_printf(b, "(return %s)", node2s(node->retval));
         break;
     case AST_COMPOUND_STMT: {
-        string_appendf(buf, "{");
-        for (Iter *i = list_iter(node->stmts); !iter_end(i);) {
-            a2s_int(buf, iter_next(i));
-            string_appendf(buf, ";");
+        buf_printf(b, "{");
+        for (int i = 0; i < vec_len(node->stmts); i++) {
+            do_node2s(b, vec_get(node->stmts, i));
+            buf_printf(b, ";");
         }
-        string_appendf(buf, "}");
+        buf_printf(b, "}");
         break;
     }
     case AST_STRUCT_REF:
-        a2s_int(buf, node->struc);
-        string_appendf(buf, ".");
-        string_appendf(buf, node->field);
+        do_node2s(b, node->struc);
+        buf_printf(b, ".");
+        buf_printf(b, node->field);
         break;
-    case AST_ADDR:  uop_to_string(buf, "addr", node); break;
-    case AST_DEREF: uop_to_string(buf, "deref", node); break;
-    case OP_UMINUS: uop_to_string(buf, "-", node); break;
-    case OP_SAL:  binop_to_string(buf, "<<", node); break;
+    case AST_ADDR:  uop_to_string(b, "addr", node); break;
+    case AST_DEREF: uop_to_string(b, "deref", node); break;
+    case OP_SAL:  binop_to_string(b, "<<", node); break;
     case OP_SAR:
-    case OP_SHR:  binop_to_string(buf, ">>", node); break;
-    case OP_GE:  binop_to_string(buf, ">=", node); break;
-    case OP_LE:  binop_to_string(buf, "<=", node); break;
-    case OP_NE:  binop_to_string(buf, "!=", node); break;
-    case OP_PRE_INC: uop_to_string(buf, "pre++", node); break;
-    case OP_PRE_DEC: uop_to_string(buf, "pre--", node); break;
-    case OP_POST_INC: uop_to_string(buf, "post++", node); break;
-    case OP_POST_DEC: uop_to_string(buf, "post--", node); break;
-    case OP_LOGAND: binop_to_string(buf, "and", node); break;
-    case OP_LOGOR:  binop_to_string(buf, "or", node); break;
-    case OP_A_ADD:  binop_to_string(buf, "+=", node); break;
-    case OP_A_SUB:  binop_to_string(buf, "-=", node); break;
-    case OP_A_MUL:  binop_to_string(buf, "*=", node); break;
-    case OP_A_DIV:  binop_to_string(buf, "/=", node); break;
-    case OP_A_MOD:  binop_to_string(buf, "%=", node); break;
-    case OP_A_AND:  binop_to_string(buf, "&=", node); break;
-    case OP_A_OR:   binop_to_string(buf, "|=", node); break;
-    case OP_A_XOR:  binop_to_string(buf, "^=", node); break;
-    case OP_A_SAL:  binop_to_string(buf, "<<=", node); break;
+    case OP_SHR:  binop_to_string(b, ">>", node); break;
+    case OP_GE:  binop_to_string(b, ">=", node); break;
+    case OP_LE:  binop_to_string(b, "<=", node); break;
+    case OP_NE:  binop_to_string(b, "!=", node); break;
+    case OP_PRE_INC: uop_to_string(b, "pre++", node); break;
+    case OP_PRE_DEC: uop_to_string(b, "pre--", node); break;
+    case OP_POST_INC: uop_to_string(b, "post++", node); break;
+    case OP_POST_DEC: uop_to_string(b, "post--", node); break;
+    case OP_LOGAND: binop_to_string(b, "and", node); break;
+    case OP_LOGOR:  binop_to_string(b, "or", node); break;
+    case OP_A_ADD:  binop_to_string(b, "+=", node); break;
+    case OP_A_SUB:  binop_to_string(b, "-=", node); break;
+    case OP_A_MUL:  binop_to_string(b, "*=", node); break;
+    case OP_A_DIV:  binop_to_string(b, "/=", node); break;
+    case OP_A_MOD:  binop_to_string(b, "%=", node); break;
+    case OP_A_AND:  binop_to_string(b, "&=", node); break;
+    case OP_A_OR:   binop_to_string(b, "|=", node); break;
+    case OP_A_XOR:  binop_to_string(b, "^=", node); break;
+    case OP_A_SAL:  binop_to_string(b, "<<=", node); break;
     case OP_A_SAR:
-    case OP_A_SHR:  binop_to_string(buf, ">>=", node); break;
-    case '!': uop_to_string(buf, "!", node); break;
-    case '&': binop_to_string(buf, "&", node); break;
-    case '|': binop_to_string(buf, "|", node); break;
+    case OP_A_SHR:  binop_to_string(b, ">>=", node); break;
+    case '!': uop_to_string(b, "!", node); break;
+    case '&': binop_to_string(b, "&", node); break;
+    case '|': binop_to_string(b, "|", node); break;
     case OP_CAST: {
-        string_appendf(buf, "((%s)=>(%s) %s)",
-                       c2s(node->operand->ctype),
-                       c2s(node->ctype),
-                       a2s(node->operand));
+        buf_printf(b, "((%s)=>(%s) %s)",
+                   ty2s(node->operand->ty),
+                   ty2s(node->ty),
+                   node2s(node->operand));
         break;
     }
     case OP_LABEL_ADDR:
-        string_appendf(buf, "&&%s", node->label);
+        buf_printf(b, "&&%s", node->label);
         break;
     default: {
-        char *left = a2s(node->left);
-        char *right = a2s(node->right);
-        if (node->type == OP_EQ)
-            string_appendf(buf, "(== ");
+        char *left = node2s(node->left);
+        char *right = node2s(node->right);
+        if (node->kind == OP_EQ)
+            buf_printf(b, "(== ");
         else
-            string_appendf(buf, "(%c ", node->type);
-        string_appendf(buf, "%s %s)", left, right);
+            buf_printf(b, "(%c ", node->kind);
+        buf_printf(b, "%s %s)", left, right);
     }
     }
 }
 
-char *a2s(Node *node) {
-    String *s = make_string();
-    a2s_int(s, node);
-    return get_cstring(s);
+char *node2s(Node *node) {
+    Buffer *b = make_buffer();
+    do_node2s(b, node);
+    return buf_body(b);
 }
 
-char *t2s(Token *tok) {
+static char *encoding_prefix(int enc) {
+    switch (enc) {
+    case ENC_CHAR16: return "u";
+    case ENC_CHAR32: return "U";
+    case ENC_UTF8:   return "u8";
+    case ENC_WCHAR:  return "L";
+    }
+    return "";
+}
+
+char *tok2s(Token *tok) {
     if (!tok)
         return "(null)";
-    switch (tok->type) {
+    switch (tok->kind) {
     case TIDENT:
         return tok->sval;
-    case TPUNCT:
-        switch (tok->punct) {
-#define punct(ident, str)                       \
-            case ident: return str;
-#define keyword(ident, str, _)                  \
-            case ident: return str;
-#include "keyword.h"
+    case TKEYWORD:
+        switch (tok->id) {
+#define op(id, str)         case id: return str;
+#define keyword(id, str, _) case id: return str;
+#include "keyword.inc"
 #undef keyword
-#undef punct
-        default: return format("%c", tok->c);
+#undef op
+        default: return format("%c", tok->id);
         }
     case TCHAR:
-        return quote_char(tok->c);
+        return format("%s'%s'",
+                      encoding_prefix(tok->enc),
+                      quote_char(tok->c));
     case TNUMBER:
         return tok->sval;
     case TSTRING:
-        return format("\"%s\"", quote_cstring(tok->sval));
+        return format("%s\"%s\"",
+                      encoding_prefix(tok->enc),
+                      quote_cstring(tok->sval));
+    case TEOF:
+        return "(eof)";
+    case TINVALID:
+        return format("%c", tok->c);
     case TNEWLINE:
         return "(newline)";
     case TSPACE:
@@ -301,5 +314,5 @@ char *t2s(Token *tok) {
     case TMACRO_PARAM:
         return "(macro-param)";
     }
-    error("internal error: unknown token type: %d", tok->type);
+    error("internal error: unknown token kind: %d", tok->kind);
 }

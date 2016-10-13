@@ -1,5 +1,4 @@
-// Copyright 2012 Rui Ueyama <rui314@gmail.com>
-// This program is free software licensed under the MIT license.
+// Copyright 2012 Rui Ueyama. Released under the MIT license.
 
 #include "test.h"
 
@@ -15,7 +14,7 @@ int test_if9(void) { if (0+1) return 'i'; return 0; }
 int test_if10(void) { if (1-1) return 0; return 'j'; }
 int test_if11(void) { if (0.5) return 'k'; return 0; }
 
-void test_if(void) {
+static void test_if() {
     expect('a', test_if1());
     expect('b', test_if2());
     expect('c', test_if3());
@@ -29,7 +28,7 @@ void test_if(void) {
     expect('k', test_if11());
 }
 
-void test_for(void) {
+static void test_for() {
     int i;
     int acc = 0;
     for (i = 0; i < 5; i++) {
@@ -51,6 +50,9 @@ void test_for(void) {
     }
     expect(5 + 6 + 7 + 8, acc);
 
+    for (int x = 3, y = 5, z = 8; x < 100; x++, y++, z+=2)
+        expect(z, x + y);
+
     for (;;)
         break;
     for (i = 0; i < 100; i++)
@@ -64,7 +66,7 @@ void test_for(void) {
     expect(68, i);
 }
 
-void test_while(void) {
+static void test_while() {
     int acc = 0;
     int i = 0;
     while (i <= 100)
@@ -99,7 +101,7 @@ void test_while(void) {
     expect(67, i);
 }
 
-void test_do(void) {
+static void test_do() {
     int acc = 0;
     int i = 0;
     do {
@@ -121,7 +123,7 @@ void test_do(void) {
     expect(6 + 7 + 8 + 9, acc);
 
     i = 0;
-    do 1; while (i++ < 100);
+    do {} while (i++ < 100);
 
     i = 0;
     do; while (i++ < 100);
@@ -132,7 +134,7 @@ void test_do(void) {
     expect(72, i);
 }
 
-void test_switch(void) {
+static void test_switch() {
     int a = 0;
     switch (1+2) {
     case 0: fail("0");
@@ -195,7 +197,7 @@ void test_switch(void) {
         ;
 }
 
-void test_goto(void) {
+static void test_goto() {
     int acc = 0;
     goto x;
     acc = 5;
@@ -211,9 +213,33 @@ void test_goto(void) {
     i++;
     goto y;
  a:
+    ;
 }
 
-void test_computed_goto(void) {
+static void test_label() {
+    int x = 0;
+    if (1)
+      L1: x++;
+    expect(1, x);
+
+    int y = 0;
+    if (0)
+      L2: y++;
+    expect(0, y);
+
+    int z = 0;
+    switch (7) {
+        if (1)
+          case 5: z += 2;
+        if (0)
+          case 7: z += 3;
+        if (1)
+          case 6: z += 5;
+    }
+    expect(8, z);
+}
+
+static void test_computed_goto() {
     struct { void *x, *y, *z, *a; } t = { &&x, &&y, &&z, &&a };
     int acc = 0;
     goto *t.x;
@@ -230,15 +256,20 @@ void test_computed_goto(void) {
     i++;
     goto *t.y;
  a:
+    ;
+    static void *p = &&L;
+    goto *p;
+ L:
+    ;
 }
 
-void test_logor(void) {
+static void test_logor() {
     expect(1, 0 || 3);
     expect(1, 5 || 0);
     expect(0, 0 || 0);
 }
 
-void testmain(void) {
+void testmain() {
     print("control flow");
     test_if();
     test_for();
@@ -246,6 +277,7 @@ void testmain(void) {
     test_do();
     test_switch();
     test_goto();
+    test_label();
     test_computed_goto();
     test_logor();
 }
