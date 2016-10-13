@@ -272,15 +272,18 @@ static void emit_toint(Type *ty) {
 static void emit_lload(Type *ty, char *base, int off) {
     SAVE;
     if (ty->kind == KIND_ARRAY) {
-        emit("lea %d(#%s), #rax", off, base);
+        emit("mov A, %s", base);
+        if (off)
+            emit("add A, %d", MOD24(off));
     } else if (ty->kind == KIND_FLOAT) {
-        emit("movss %d(#%s), #xmm0", off, base);
+        assert_float();
     } else if (ty->kind == KIND_DOUBLE || ty->kind == KIND_LDOUBLE) {
-        emit("movsd %d(#%s), #xmm0", off, base);
+        assert_float();
     } else {
-        char *inst = get_load_inst(ty);
-        emit("%s %d(#%s), #rax", inst, off, base);
-        maybe_emit_bitshift_load(ty);
+        emit("mov B, %s", base);
+        if (off)
+            emit("add B, %d", MOD24(off));
+        emit("load A, B");
     }
 }
 
@@ -304,15 +307,14 @@ static void emit_gsave(char *varname, Type *ty, int off) {
 static void emit_lsave(Type *ty, int off) {
     SAVE;
     if (ty->kind == KIND_FLOAT) {
-        emit("movss #xmm0, %d(#rbp)", off);
+        assert_float();
     } else if (ty->kind == KIND_DOUBLE) {
-        emit("movsd #xmm0, %d(#rbp)", off);
+        assert_float();
     } else {
-        maybe_convert_bool(ty);
-        char *reg = get_int_reg(ty, 'a');
-        char *addr = format("%d(%%rbp)", off);
-        maybe_emit_bitshift_save(ty, addr);
-        emit("mov #%s, %s", reg, addr);
+        emit("mov B, BP");
+        if (off)
+            emit("add B, %d", MOD24(off));
+        emit("store A, B");
     }
 }
 
@@ -334,31 +336,47 @@ static void emit_assign_deref(Node *var) {
     do_emit_assign_deref(var->operand->ty->ptr, 0);
 }
 
+static void emit_call_builtin(char *fname);
+
 static void emit_pointer_arith(char kind, Node *left, Node *right) {
     SAVE;
     emit_expr(left);
-    push("rcx");
-    push("rax");
+    push("B");
+    push("A");
     emit_expr(right);
-    int size = left->ty->ptr->size;
-    if (size > 1)
-        emit("imul $%d, #rax", size);
-    emit("mov #rax, #rcx");
-    pop("rax");
+
+    if (left->ty->ptr->size == 2)
+        emit("add A, A");
+    if (left->ty->ptr->size > 2) {
+        push("A");
+        emit("mov A, %d", left->ty->ptr->size);
+        push("A");
+        emit_call_builtin("__builtin_mul");
+        emit("add SP, 2");
+        stackpos -= 3;
+    }
+
+    emit("mov B, A");
+    pop("A");
     switch (kind) {
-    case '+': emit("add #rcx, #rax"); break;
-    case '-': emit("sub #rcx, #rax"); break;
+    case '+': emit("add A, B"); break;
+    case '-': emit("sub A, B"); break;
     default: error("invalid operator '%d'", kind);
     }
-    pop("rcx");
+    emit("mov C, A");
+    pop("A");
+    emit("mov B, A");
+    emit("mov A, C");
 }
 
 static void emit_zero_filler(int start, int end) {
     SAVE;
-    for (; start <= end - 4; start += 4)
-        emit("movl $0, %d(#rbp)", start);
-    for (; start < end; start++)
-        emit("movb $0, %d(#rbp)", start);
+    emit("mov A, 0");
+    emit("mov B, SP");
+    for (; start != end; start++) {
+        emit("store A, B");
+        emit("add B, 1");
+    }
 }
 
 static void ensure_lvar_init(Node *node) {
@@ -471,8 +489,6 @@ static void emit_comp(char *inst, char *usiginst, Node *node) {
         emit("%s #al", inst);
     emit("movzb #al, #eax");
 }
-
-static void emit_call_builtin(char *fname);
 
 static void emit_binop_int_arith(Node *node) {
     SAVE;
@@ -1399,7 +1415,7 @@ static void emit_func_prologue(Node *func) {
         localarea += size;
     }
     if (localarea) {
-        emit("sub $%d, #rsp", localarea);
+        emit("sub SP, %d", localarea);
         stackpos += localarea;
     }
 }

@@ -1356,6 +1356,7 @@ static void squash_unnamed_struct(Dict *dict, Type *unnamed, int offset) {
 static int read_bitsize(char *name, Type *ty) {
     if (!is_inttype(ty))
         error("non-integer type cannot be a bitfield: %s", ty2s(ty));
+    error("bitfield is not implemented: %s", ty2s(ty));
     Token *tok = peek();
     int r = read_intexpr();
     int maxsize = ty->kind == KIND_BOOL ? 1 : ty->size * 8;
