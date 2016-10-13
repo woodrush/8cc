@@ -244,21 +244,6 @@ static void emit_gload(Type *ty, char *label, int off) {
 }
 
 static void emit_intcast(Type *ty) {
-    switch(ty->kind) {
-    case KIND_BOOL:
-    case KIND_CHAR:
-        ty->usig ? emit("movzbq #al, #rax") : emit("movsbq #al, #rax");
-        return;
-    case KIND_SHORT:
-        ty->usig ? emit("movzwq #ax, #rax") : emit("movswq #ax, #rax");
-        return;
-    case KIND_INT:
-        ty->usig ? emit("mov #eax, #eax") : emit("cltq");
-        return;
-    case KIND_LONG:
-    case KIND_LLONG:
-        return;
-    }
 }
 
 static void emit_toint(Type *ty) {
@@ -415,7 +400,7 @@ static void emit_load_struct_ref(Node *struc, Type *field, int off) {
     switch (struc->kind) {
     case AST_LVAR:
         ensure_lvar_init(struc);
-        emit_lload(field, "rbp", struc->loff + field->offset + off);
+        emit_lload(field, "BP", struc->loff + field->offset + off);
         break;
     case AST_GVAR:
         emit_gload(field, struc->glabel, field->offset + off);
@@ -558,8 +543,11 @@ static void emit_ret() {
     if (is_main) {
         emit("exit");
     } else {
-        emit("leave");
-        emit("ret");
+        emit("mov SP, BP");
+        pop("A");
+        emit("mov BP, A");
+        pop("A");
+        emit("jmp A");
     }
 }
 
@@ -857,7 +845,7 @@ static void maybe_print_source_loc(Node *node) {
 static void emit_lvar(Node *node) {
     SAVE;
     ensure_lvar_init(node);
-    emit_lload(node->ty, "rbp", node->loff);
+    emit_lload(node->ty, "BP", node->loff);
 }
 
 static void emit_gvar(Node *node) {
@@ -1059,6 +1047,7 @@ static void emit_return(Node *node) {
     if (node->retval) {
         emit_expr(node->retval);
         maybe_booleanize_retval(node->retval->ty);
+        emit("mov B, A");
     }
     emit_ret();
 }
@@ -1381,7 +1370,9 @@ static void emit_func_prologue(Node *func) {
     SAVE;
     emit(".text");
     emit_noindent("%s:", func->fname);
-    push("SP");
+
+    push("BP");
+    emit("mov BP, SP");
     int off = 0;
 
     int localarea = 0;
