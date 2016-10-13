@@ -17,6 +17,8 @@ static int stackpos;
 static int numgp;
 static int numfp;
 static FILE *outputfp;
+static int is_main;
+
 static Map *source_files = &EMPTY_MAP;
 static Map *source_lines = &EMPTY_MAP;
 static char *last_loc = "";
@@ -545,8 +547,12 @@ static void emit_load_convert(Type *to, Type *from) {
 
 static void emit_ret() {
     SAVE;
-    emit("leave");
-    emit("ret");
+    if (is_main) {
+        emit("exit");
+    } else {
+        emit("leave");
+        emit("ret");
+    }
 }
 
 static void emit_binop(Node *node) {
@@ -938,7 +944,21 @@ static void maybe_booleanize_retval(Type *ty) {
 }
 
 static void emit_call(Node *node) {
-    assert(0 && "call");
+    bool isptr = (node->kind == AST_FUNCPTR_CALL);
+    char *end = make_label();
+    if (isptr) {
+        emit_expr(node->fptr);
+        emit("mov C, A");
+    }
+    emit("mov A, %s", end);
+    push("A");
+    if (isptr)
+        emit("jmp C");
+    else
+        emit("jmp %s", node->fname);
+    emit_label(end);
+    emit("mov A, B");
+    stackpos -= 1;
 }
 
 static void emit_func_call(Node *node) {
@@ -1371,9 +1391,11 @@ static void emit_func_prologue(Node *func) {
 void emit_toplevel(Node *v) {
     stackpos = 8;
     if (v->kind == AST_FUNC) {
+        is_main = !strcmp(v->fname, "main");
         emit_func_prologue(v);
         emit_expr(v->body);
         emit_ret();
+        is_main = 0;
     } else if (v->kind == AST_DECL) {
         emit_global_var(v);
     } else {
