@@ -11,9 +11,6 @@
 bool dumpstack = false;
 bool dumpsource = true;
 
-static char *REGS[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
-static char *SREGS[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
-static char *MREGS[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
 static int TAB = 8;
 static Vector *functions = &EMPTY_VECTOR;
 static int stackpos;
@@ -34,6 +31,14 @@ static void emit_data(Node *v, int off, int depth);
 
 #define emit(...)        emitf(__LINE__, "\t" __VA_ARGS__)
 #define emit_noindent(...)  emitf(__LINE__, __VA_ARGS__)
+
+#define assert_float() assert(0 && "float")
+
+#ifdef __eir__
+#define MOD24(x) x
+#else
+#define MOD24(x) (x & 0xffffff)
+#endif
 
 #ifdef __GNUC__
 #define SAVE                                                            \
@@ -152,14 +157,19 @@ static void pop_xmm(int reg) {
 
 static void push(char *reg) {
     SAVE;
-    emit("push #%s", reg);
-    stackpos += 8;
+    assert(strcmp(reg, "D"));
+    emit("mov D, SP");
+    emit("add D, -1");
+    emit("store %s, D", reg);
+    emit("mov SP, D");
+    stackpos += 1;
 }
 
 static void pop(char *reg) {
     SAVE;
-    emit("pop #%s", reg);
-    stackpos -= 8;
+    emit("load %s, SP", reg);
+    emit("add SP, 1", reg);
+    stackpos -= 1;
     assert(stackpos >= 0);
 }
 
@@ -690,17 +700,6 @@ static void emit_post_inc_dec(Node *node, char *op) {
     pop("rax");
 }
 
-static void set_reg_nums(Vector *args) {
-    numgp = numfp = 0;
-    for (int i = 0; i < vec_len(args); i++) {
-        Node *arg = vec_get(args, i);
-        if (is_flotype(arg->ty))
-            numfp++;
-        else
-            numgp++;
-    }
-}
-
 static void emit_je(char *label) {
     emit("test #rax, #rax");
     emit("je %s", label);
@@ -720,41 +719,22 @@ static void emit_literal(Node *node) {
     case KIND_BOOL:
     case KIND_CHAR:
     case KIND_SHORT:
-        emit("mov $%u, #rax", node->ival);
+        emit("mov A, %d", MOD24(node->ival));
         break;
     case KIND_INT:
-        emit("mov $%u, #rax", node->ival);
-        break;
     case KIND_LONG:
     case KIND_LLONG: {
-        emit("mov $%lu, #rax", node->ival);
+        emit("mov A, %d", MOD24(node->ival));
         break;
     }
-    case KIND_FLOAT: {
-        if (!node->flabel) {
-            node->flabel = make_label();
-            float fval = node->fval;
-            emit_noindent(".data");
-            emit_label(node->flabel);
-            emit(".long %d", *(uint32_t *)&fval);
-            emit_noindent(".text");
-        }
-        emit("movss %s(#rip), #xmm0", node->flabel);
-        break;
-    }
+    case KIND_FLOAT:
     case KIND_DOUBLE:
     case KIND_LDOUBLE: {
-        if (!node->flabel) {
-            node->flabel = make_label();
-            emit_noindent(".data");
-            emit_label(node->flabel);
-            emit(".quad %lu", *(uint64_t *)&node->fval);
-            emit_noindent(".text");
-        }
-        emit("movsd %s(#rip), #xmm0", node->flabel);
+        assert_float();
         break;
     }
     case KIND_ARRAY: {
+        assert(0 && "array");
         if (!node->slabel) {
             node->slabel = make_label();
             emit_noindent(".data");
@@ -923,37 +903,13 @@ static bool maybe_emit_builtin(Node *node) {
     return false;
 }
 
-static void classify_args(Vector *ints, Vector *floats, Vector *rest, Vector *args) {
+static void classify_args(Vector *ints, Vector *args) {
     SAVE;
-    int ireg = 0, xreg = 0;
-    int imax = 6, xmax = 8;
     for (int i = 0; i < vec_len(args); i++) {
         Node *v = vec_get(args, i);
-        if (v->ty->kind == KIND_STRUCT)
-            vec_push(rest, v);
-        else if (is_flotype(v->ty))
-            vec_push((xreg++ < xmax) ? floats : rest, v);
-        else
-            vec_push((ireg++ < imax) ? ints : rest, v);
+        assert(!is_flotype(v->ty));
+        vec_push(ints, v);
     }
-}
-
-static void save_arg_regs(int nints, int nfloats) {
-    SAVE;
-    assert(nints <= 6);
-    assert(nfloats <= 8);
-    for (int i = 0; i < nints; i++)
-        push(REGS[i]);
-    for (int i = 1; i < nfloats; i++)
-        push_xmm(i);
-}
-
-static void restore_arg_regs(int nints, int nfloats) {
-    SAVE;
-    for (int i = nfloats - 1; i > 0; i--)
-        pop_xmm(i);
-    for (int i = nints - 1; i >= 0; i--)
-        pop(REGS[i]);
 }
 
 static int emit_args(Vector *vals) {
@@ -965,28 +921,14 @@ static int emit_args(Vector *vals) {
             emit_addr(v);
             r += push_struct(v->ty->size);
         } else if (is_flotype(v->ty)) {
-            emit_expr(v);
-            push_xmm(0);
-            r += 8;
+            assert_float();
         } else {
             emit_expr(v);
-            push("rax");
-            r += 8;
+            push("A");
+            r += 1;
         }
     }
     return r;
-}
-
-static void pop_int_args(int nints) {
-    SAVE;
-    for (int i = nints - 1; i >= 0; i--)
-        pop(REGS[i]);
-}
-
-static void pop_float_args(int nfloats) {
-    SAVE;
-    for (int i = nfloats - 1; i >= 0; i--)
-        pop_xmm(i);
 }
 
 static void maybe_booleanize_retval(Type *ty) {
@@ -995,52 +937,39 @@ static void maybe_booleanize_retval(Type *ty) {
     }
 }
 
+static void emit_call(Node *node) {
+    assert(0 && "call");
+}
+
 static void emit_func_call(Node *node) {
     SAVE;
     int opos = stackpos;
-    bool isptr = (node->kind == AST_FUNCPTR_CALL);
-    Type *ftype = isptr ? node->fptr->ty->ptr : node->ftype;
 
     Vector *ints = make_vector();
-    Vector *floats = make_vector();
-    Vector *rest = make_vector();
-    classify_args(ints, floats, rest, node->args);
-    save_arg_regs(vec_len(ints), vec_len(floats));
+    classify_args(ints, node->args);
 
-    bool padding = stackpos % 16;
-    if (padding) {
-        emit("sub $8, #rsp");
-        stackpos += 8;
-    }
-
-    int restsize = emit_args(vec_reverse(rest));
-    if (isptr) {
-        emit_expr(node->fptr);
-        push("rax");
-    }
     emit_args(ints);
-    emit_args(floats);
-    pop_float_args(vec_len(floats));
-    pop_int_args(vec_len(ints));
 
-    if (isptr) pop("r11");
-    if (ftype->hasva)
-        emit("mov $%u, #eax", vec_len(floats));
-
-    if (isptr)
-        emit("call *#r11");
-    else
-        emit("call %s", node->fname);
-    maybe_booleanize_retval(node->ty);
-    if (restsize > 0) {
-        emit("add $%d, #rsp", restsize);
-        stackpos -= restsize;
+    if (!node->fname) {
+        emit_call(node);
+    } else if (!strcmp(node->fname, "__builtin_dump")) {
+        emit("dump");
+    } else if (!strcmp(node->fname, "exit")) {
+        emit("exit");
+    } else if (!strcmp(node->fname, "putchar")) {
+        emit("putc A");
+    } else if (!strcmp(node->fname, "getchar")) {
+        char *end = make_label();
+        emit("getc A");
+        emit("jne %s, A, 0", end);
+        emit("mov A, -1");
+        emit_label(end);
+    } else {
+        emit_call(node);
     }
-    if (padding) {
-        emit("add $8, #rsp");
-        stackpos -= 8;
-    }
-    restore_arg_regs(vec_len(ints), vec_len(floats));
+    if (vec_len(ints))
+        emit("add SP, %d", vec_len(ints));
+    stackpos -= vec_len(ints);
     assert(opos == stackpos);
 }
 
@@ -1417,80 +1346,12 @@ static void emit_global_var(Node *v) {
         emit_bss(v);
 }
 
-static int emit_regsave_area() {
-    emit("sub $%d, #rsp", REGAREA_SIZE);
-    emit("mov #rdi, (#rsp)");
-    emit("mov #rsi, 8(#rsp)");
-    emit("mov #rdx, 16(#rsp)");
-    emit("mov #rcx, 24(#rsp)");
-    emit("mov #r8, 32(#rsp)");
-    emit("mov #r9, 40(#rsp)");
-    emit("movaps #xmm0, 48(#rsp)");
-    emit("movaps #xmm1, 64(#rsp)");
-    emit("movaps #xmm2, 80(#rsp)");
-    emit("movaps #xmm3, 96(#rsp)");
-    emit("movaps #xmm4, 112(#rsp)");
-    emit("movaps #xmm5, 128(#rsp)");
-    emit("movaps #xmm6, 144(#rsp)");
-    emit("movaps #xmm7, 160(#rsp)");
-    return REGAREA_SIZE;
-}
-
-static void push_func_params(Vector *params, int off) {
-    int ireg = 0;
-    int xreg = 0;
-    int arg = 2;
-    for (int i = 0; i < vec_len(params); i++) {
-        Node *v = vec_get(params, i);
-        if (v->ty->kind == KIND_STRUCT) {
-            emit("lea %d(#rbp), #rax", arg * 8);
-            int size = push_struct(v->ty->size);
-            off -= size;
-            arg += size / 8;
-        } else if (is_flotype(v->ty)) {
-            if (xreg >= 8) {
-                emit("mov %d(#rbp), #rax", arg++ * 8);
-                push("rax");
-            } else {
-                push_xmm(xreg++);
-            }
-            off -= 8;
-        } else {
-            if (ireg >= 6) {
-                if (v->ty->kind == KIND_BOOL) {
-                    emit("mov %d(#rbp), #al", arg++ * 8);
-                    emit("movzb #al, #eax");
-                } else {
-                    emit("mov %d(#rbp), #rax", arg++ * 8);
-                }
-                push("rax");
-            } else {
-                if (v->ty->kind == KIND_BOOL)
-                    emit("movzb #%s, #%s", SREGS[ireg], MREGS[ireg]);
-                push(REGS[ireg++]);
-            }
-            off -= 8;
-        }
-        v->loff = off;
-    }
-}
-
 static void emit_func_prologue(Node *func) {
     SAVE;
     emit(".text");
-    if (!func->ty->isstatic)
-        emit_noindent(".global %s", func->fname);
     emit_noindent("%s:", func->fname);
-    emit("nop");
-    push("rbp");
-    emit("mov #rsp, #rbp");
+    push("SP");
     int off = 0;
-    if (func->ty->hasva) {
-        set_reg_nums(func->params);
-        off -= emit_regsave_area();
-    }
-    push_func_params(func->params, off);
-    off -= vec_len(func->params) * 8;
 
     int localarea = 0;
     for (int i = 0; i < vec_len(func->localvars); i++) {
