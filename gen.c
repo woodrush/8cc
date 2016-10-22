@@ -137,26 +137,6 @@ static char *get_load_inst(Type *ty) {
     }
 }
 
-static int align(int n, int m) {
-    int rem = n % m;
-    return (rem == 0) ? n : n - rem + m;
-}
-
-static void push_xmm(int reg) {
-    SAVE;
-    emit("sub $8, #rsp");
-    emit("movsd #xmm%d, (#rsp)", reg);
-    stackpos += 8;
-}
-
-static void pop_xmm(int reg) {
-    SAVE;
-    emit("movsd (#rsp), #xmm%d", reg);
-    emit("add $8, #rsp");
-    stackpos -= 8;
-    assert(stackpos >= 0);
-}
-
 static void push(char *reg) {
     SAVE;
     assert(strcmp(reg, "D"));
@@ -173,32 +153,6 @@ static void pop(char *reg) {
     emit("add SP, 1", reg);
     stackpos -= 1;
     assert(stackpos >= 0);
-}
-
-static int push_struct(int size) {
-    SAVE;
-    int aligned = align(size, 8);
-    emit("sub $%d, #rsp", aligned);
-    emit("mov #rcx, -8(#rsp)");
-    emit("mov #r11, -16(#rsp)");
-    emit("mov #rax, #rcx");
-    int i = 0;
-    for (; i < size; i += 8) {
-        emit("movq %d(#rcx), #r11", i);
-        emit("mov #r11, %d(#rsp)", i);
-    }
-    for (; i < size; i += 4) {
-        emit("movl %d(#rcx), #r11", i);
-        emit("movl #r11d, %d(#rsp)", i);
-    }
-    for (; i < size; i++) {
-        emit("movb %d(#rcx), #r11", i);
-        emit("movb #r11b, %d(#rsp)", i);
-    }
-    emit("mov -8(#rsp), #rcx");
-    emit("mov -16(#rsp), #r11");
-    stackpos += aligned;
-    return aligned;
 }
 
 static void maybe_emit_bitshift_load(Type *ty) {
@@ -434,11 +388,7 @@ static void emit_store(Node *var) {
 static void emit_to_bool(Type *ty) {
     SAVE;
     if (is_flotype(ty)) {
-        push_xmm(1);
-        emit("xorpd #xmm1, #xmm1");
-        emit("%s #xmm1, #xmm0", (ty->kind == KIND_FLOAT) ? "ucomiss" : "ucomisd");
-        emit("setne #al");
-        pop_xmm(1);
+        assert_float();
     } else {
         emit("cmp $0, #rax");
         emit("setne #al");
@@ -501,23 +451,6 @@ static void emit_binop_int_arith(Node *node) {
 static void emit_binop_float_arith(Node *node) {
     SAVE;
     assert_float();
-#if 0
-    char *op;
-    bool isdouble = (node->ty->kind == KIND_DOUBLE);
-    switch (node->kind) {
-    case '+': op = (isdouble ? "addsd" : "addss"); break;
-    case '-': op = (isdouble ? "subsd" : "subss"); break;
-    case '*': op = (isdouble ? "mulsd" : "mulss"); break;
-    case '/': op = (isdouble ? "divsd" : "divss"); break;
-    default: error("invalid operator '%d'", node->kind);
-    }
-    emit_expr(node->left);
-    push_xmm(0);
-    emit_expr(node->right);
-    emit("%s #xmm0, #xmm1", (isdouble ? "movsd" : "movss"));
-    pop_xmm(0);
-    emit("%s #xmm1, #xmm0", op);
-#endif
 }
 
 static void emit_load_convert(Type *to, Type *from) {
@@ -928,16 +861,9 @@ static int emit_args(Vector *vals) {
     int r = 0;
     for (int i = 0; i < vec_len(vals); i++) {
         Node *v = vec_get(vals, i);
-        if (v->ty->kind == KIND_STRUCT) {
-            emit_addr(v);
-            r += push_struct(v->ty->size);
-        } else if (is_flotype(v->ty)) {
-            assert_float();
-        } else {
-            emit_expr(v);
-            push("A");
-            r += 1;
-        }
+        emit_expr(v);
+        push("A");
+        r += 1;
     }
     return r;
 }
@@ -1378,8 +1304,7 @@ static void emit_func_prologue(Node *func) {
     int localarea = 0;
     for (int i = 0; i < vec_len(func->localvars); i++) {
         Node *v = vec_get(func->localvars, i);
-        int size = align(v->ty->size, 8);
-        assert(size % 8 == 0);
+        int size = v->ty->size;
         off -= size;
         v->loff = off;
         localarea += size;
