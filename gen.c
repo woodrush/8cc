@@ -505,29 +505,26 @@ static void emit_binop(Node *node) {
 }
 
 static void emit_save_literal(Node *node, Type *totype, int off) {
+    int v = node->ival;
     switch (totype->kind) {
-    case KIND_BOOL:  emit("movb $%d, %d(#rbp)", !!node->ival, off); break;
-    case KIND_CHAR:  emit("movb $%d, %d(#rbp)", node->ival, off); break;
-    case KIND_SHORT: emit("movw $%d, %d(#rbp)", node->ival, off); break;
-    case KIND_INT:   emit("movl $%d, %d(#rbp)", node->ival, off); break;
+    case KIND_BOOL:
+        v = !!v;
+    case KIND_CHAR:
+    case KIND_SHORT:
+    case KIND_INT:
     case KIND_LONG:
     case KIND_LLONG:
     case KIND_PTR: {
-        emit("movl $%lu, %d(#rbp)", ((uint64_t)node->ival) & ((1L << 32) - 1), off);
-        emit("movl $%lu, %d(#rbp)", ((uint64_t)node->ival) >> 32, off + 4);
+        emit("mov B, BP");
+        if (off)
+            emit("add B, %d", MOD24(off));
+        emit("mov A, %d", MOD24(v));
+        emit("store A, B");
         break;
     }
-    case KIND_FLOAT: {
-        float fval = node->fval;
-        emit("movl $%u, %d(#rbp)", *(uint32_t *)&fval, off);
-        break;
-    }
+    case KIND_FLOAT:
     case KIND_DOUBLE:
-    case KIND_LDOUBLE: {
-        emit("movl $%lu, %d(#rbp)", *(uint64_t *)&node->fval & ((1L << 32) - 1), off);
-        emit("movl $%lu, %d(#rbp)", *(uint64_t *)&node->fval >> 32, off + 4);
-        break;
-    }
+        assert_float();
     default:
         error("internal error: <%s> <%s> <%d>", node2s(node), ty2s(totype), off);
     }
