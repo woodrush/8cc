@@ -896,7 +896,7 @@ static void emit_func_call(Node *node) {
     Vector *ints = make_vector();
     classify_args(ints, node->args);
 
-    emit_args(ints);
+    emit_args(vec_reverse(ints));
 
     if (!node->fname) {
         emit_call(node);
