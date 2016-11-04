@@ -1289,6 +1289,16 @@ static void emit_global_var(Node *v) {
         emit_bss(v);
 }
 
+static void assign_func_param_offsets(Vector *params, int off) {
+    int arg = 2;
+    for (int i = 0; i < vec_len(params); i++) {
+        Node *v = vec_get(params, i);
+        if (is_flotype(v->ty))
+            assert_float();
+        v->loff = arg++;
+    }
+}
+
 static void emit_func_prologue(Node *func) {
     SAVE;
     emit(".text");
@@ -1297,6 +1307,7 @@ static void emit_func_prologue(Node *func) {
     push("BP");
     emit("mov BP, SP");
     int off = 0;
+    assign_func_param_offsets(func->params, off);
 
     int localarea = 0;
     for (int i = 0; i < vec_len(func->localvars); i++) {
