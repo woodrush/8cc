@@ -673,7 +673,6 @@ static void emit_literal(Node *node) {
         break;
     }
     case KIND_ARRAY: {
-        assert(0 && "array");
         if (!node->slabel) {
             node->slabel = make_label();
             emit_noindent(".data");
@@ -681,7 +680,7 @@ static void emit_literal(Node *node) {
             emit(".string \"%s\"", quote_cstring_len(node->sval, node->ty->size));
             emit_noindent(".text");
         }
-        emit("lea %s(#rip), #rax", node->slabel);
+        emit("mov A, %s", node->slabel);
         break;
     }
     default:
