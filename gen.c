@@ -255,18 +255,19 @@ static void emit_lsave(Type *ty, int off) {
 
 static void do_emit_assign_deref(Type *ty, int off) {
     SAVE;
-    emit("mov (#rsp), #rcx");
-    char *reg = get_int_reg(ty, 'c');
+    emit("mov C, A");
+    emit("load A, SP");
+    emit("mov B, A");
+    emit("mov A, C");
     if (off)
-        emit("mov #%s, %d(#rax)", reg, off);
-    else
-        emit("mov #%s, (#rax)", reg);
-    pop("rax");
+        emit("add A, %d", MOD24(off));
+    emit("store B, A");
+    pop("A");
 }
 
 static void emit_assign_deref(Node *var) {
     SAVE;
-    push("rax");
+    push("A");
     emit_expr(var->operand);
     do_emit_assign_deref(var->operand->ty->ptr, 0);
 }
@@ -933,7 +934,7 @@ static void emit_conv(Node *node) {
 static void emit_deref(Node *node) {
     SAVE;
     emit_expr(node->operand);
-    emit_lload(node->operand->ty->ptr, "rax", 0);
+    emit_lload(node->operand->ty->ptr, "A", 0);
     emit_load_convert(node->ty, node->operand->ty->ptr);
 }
 
