@@ -1125,8 +1125,6 @@ static void emit_expr(Node *node) {
 
 static void emit_zero(int size) {
     SAVE;
-    for (; size >= 8; size -= 8) emit(".quad 0");
-    for (; size >= 4; size -= 4) emit(".long 0");
     for (; size > 0; size--)     emit(".byte 0");
 }
 
@@ -1145,11 +1143,11 @@ static void emit_data_addr(Node *operand, int depth) {
         emit_label(label);
         do_emit_data(operand->lvarinit, operand->ty->size, 0, depth + 1);
         emit(".data %d", depth);
-        emit(".quad %s", label);
+        emit(".long %s", label);
         return;
     }
     case AST_GVAR:
-        emit(".quad %s", operand->glabel);
+        emit(".long %s", operand->glabel);
         return;
     default:
         error("internal error");
@@ -1162,28 +1160,23 @@ static void emit_data_charptr(char *s, int depth) {
     emit_label(label);
     emit(".string \"%s\"", quote_cstring(s));
     emit(".data %d", depth);
-    emit(".quad %s", label);
+    emit(".long %s", label);
 }
 
 static void emit_data_primtype(Type *ty, Node *val, int depth) {
     switch (ty->kind) {
     case KIND_FLOAT: {
-        float f = val->fval;
-        emit(".long %d", *(uint32_t *)&f);
+        assert_float();
         break;
     }
     case KIND_DOUBLE:
-        emit(".quad %ld", *(uint64_t *)&val->fval);
+        assert_float();
         break;
     case KIND_BOOL:
-        emit(".byte %d", !!eval_intexpr(val, NULL));
+        emit(".long %d", !!eval_intexpr(val, NULL));
         break;
     case KIND_CHAR:
-        emit(".byte %d", eval_intexpr(val, NULL));
-        break;
     case KIND_SHORT:
-        emit(".short %d", eval_intexpr(val, NULL));
-        break;
     case KIND_INT:
         emit(".long %d", eval_intexpr(val, NULL));
         break;
@@ -1191,19 +1184,19 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
     case KIND_LLONG:
     case KIND_PTR:
         if (val->kind == OP_LABEL_ADDR) {
-            emit(".quad %s", val->newlabel);
+            emit(".long %s", val->newlabel);
             break;
         }
         bool is_char_ptr = (val->operand->ty->kind == KIND_ARRAY && val->operand->ty->ptr->kind == KIND_CHAR);
         if (is_char_ptr) {
             emit_data_charptr(val->operand->sval, depth);
         } else if (val->kind == AST_GVAR) {
-            emit(".quad %s", val->glabel);
+            emit(".long %s", val->glabel);
         } else {
             Node *base = NULL;
             int v = eval_intexpr(val, &base);
             if (base == NULL) {
-                emit(".quad %u", v);
+                emit(".long %u", v);
                 break;
             }
             Type *ty = base->ty;
@@ -1212,7 +1205,7 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
             if (base->kind != AST_GVAR)
                 error("global variable expected, but got %s", node2s(base));
             assert(ty->ptr);
-            emit(".quad %s+%u", base->glabel, v * ty->ptr->size);
+            emit(".long %s+%u", base->glabel, v * ty->ptr->size);
         }
         break;
     default:
