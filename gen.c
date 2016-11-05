@@ -360,7 +360,7 @@ static void emit_load_struct_ref(Node *struc, Type *field, int off) {
         break;
     case AST_DEREF:
         emit_expr(struc->operand);
-        emit_lload(field, "rax", field->offset + off);
+        emit_lload(field, "A", field->offset + off);
         break;
     default:
         error("internal error: %s", node2s(struc));
@@ -531,7 +531,8 @@ static void emit_addr(Node *node) {
     switch (node->kind) {
     case AST_LVAR:
         ensure_lvar_init(node);
-        emit("lea %d(#rbp), #rax", node->loff);
+        emit("mov A, BP");
+        emit("add A, %d", node->loff);
         break;
     case AST_GVAR:
         emit("lea %s(#rip), #rax", node->glabel);
