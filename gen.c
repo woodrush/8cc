@@ -126,17 +126,6 @@ static char *get_int_reg(Type *ty, char r) {
     }
 }
 
-static char *get_load_inst(Type *ty) {
-    switch (ty->size) {
-    case 1: return "movsbq";
-    case 2: return "movswq";
-    case 4: return "movslq";
-    case 8: return "mov";
-    default:
-        error("Unknown data size: %s: %d", ty2s(ty), ty->size);
-    }
-}
-
 static void push(char *reg) {
     SAVE;
     assert(strcmp(reg, "D"));
@@ -626,17 +615,17 @@ static void emit_decl_init(Vector *inits, int off, int totalsize) {
 
 static void emit_pre_inc_dec(Node *node, char *op) {
     emit_expr(node->operand);
-    emit("%s $1, #rax", op);
+    emit("%s A, 1", op);
     emit_store(node->operand);
 }
 
 static void emit_post_inc_dec(Node *node, char *op) {
     SAVE;
     emit_expr(node->operand);
-    push("rax");
-    emit("%s $1, #rax", op);
+    push("A");
+    emit("%s A, 1", op);
     emit_store(node->operand);
-    pop("rax");
+    pop("A");
 }
 
 static void emit_je(char *label) {
