@@ -166,6 +166,7 @@ static void maybe_emit_bitshift_load(Type *ty) {
     pop("rcx");
 }
 
+#if 0
 static void maybe_emit_bitshift_save(Type *ty, char *addr) {
     SAVE;
     if (ty->bitsize <= 0)
@@ -182,6 +183,7 @@ static void maybe_emit_bitshift_save(Type *ty, char *addr) {
     pop("rdi");
     pop("rcx");
 }
+#endif
 
 static void emit_gload(Type *ty, char *label, int off) {
     SAVE;
@@ -192,8 +194,9 @@ static void emit_gload(Type *ty, char *label, int off) {
             emit("lea %s(#rip), #rax", label);
         return;
     }
-    char *inst = get_load_inst(ty);
-    emit("%s %s+%d(#rip), #rax", inst, label, off);
+    emit("mov B, %s", label);
+    emit("add B, %d", off);
+    emit("load A, B");
     maybe_emit_bitshift_load(ty);
 }
 
@@ -237,10 +240,14 @@ static void emit_gsave(char *varname, Type *ty, int off) {
     SAVE;
     assert(ty->kind != KIND_ARRAY);
     maybe_convert_bool(ty);
+#if 0
     char *reg = get_int_reg(ty, 'a');
     char *addr = format("%s+%d(%%rip)", varname, off);
     maybe_emit_bitshift_save(ty, addr);
-    emit("mov #%s, %s", reg, addr);
+#endif
+    emit("mov B, %s", varname);
+    emit("add B, %d", off);
+    emit("store A, B");
 }
 
 static void emit_lsave(Type *ty, int off) {
@@ -1267,8 +1274,10 @@ static void do_emit_data(Vector *inits, int size, int off, int depth) {
 static void emit_data(Node *v, int off, int depth) {
     SAVE;
     emit(".data %d", depth);
+#if 0
     if (!v->declvar->ty->isstatic)
         emit_noindent(".global %s", v->declvar->glabel);
+#endif
     emit_noindent("%s:", v->declvar->glabel);
     do_emit_data(v->declinit, v->declvar->ty->size, off, depth);
 }
@@ -1276,8 +1285,10 @@ static void emit_data(Node *v, int off, int depth) {
 static void emit_bss(Node *v) {
     SAVE;
     emit(".data");
+#if 0
     if (!v->declvar->ty->isstatic)
         emit(".global %s", v->declvar->glabel);
+#endif
     emit(".lcomm %s, %d", v->declvar->glabel, v->declvar->ty->size);
 }
 
