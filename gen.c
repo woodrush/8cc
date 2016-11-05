@@ -478,6 +478,7 @@ static void emit_ret() {
         emit("mov BP, A");
         pop("A");
         emit("jmp A");
+        stackpos += 2;
     }
 }
 
@@ -1325,7 +1326,7 @@ static void emit_func_prologue(Node *func) {
 }
 
 void emit_toplevel(Node *v) {
-    stackpos = 8;
+    stackpos = 1;
     if (v->kind == AST_FUNC) {
         is_main = !strcmp(v->fname, "main");
         emit_func_prologue(v);
