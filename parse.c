@@ -357,7 +357,7 @@ static Type *make_numtype(int kind, bool usig) {
 }
 
 static Type* make_ptr_type(Type *ty) {
-    return make_type(&(Type){ KIND_PTR, .ptr = ty, .size = 8, .align = 8 });
+    return make_type(&(Type){ KIND_PTR, .ptr = ty, .size = 1, .align = 1 });
 }
 
 static Type* make_array_type(Type *ty, int len) {
