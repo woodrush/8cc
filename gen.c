@@ -114,18 +114,6 @@ static void emit_nostack(char *fmt, ...) {
     fprintf(outputfp, "\n");
 }
 
-static char *get_int_reg(Type *ty, char r) {
-    assert(r == 'a' || r == 'c');
-    switch (ty->size) {
-    case 1: return (r == 'a') ? "al" : "cl";
-    case 2: return (r == 'a') ? "ax" : "cx";
-    case 4: return (r == 'a') ? "eax" : "ecx";
-    case 8: return (r == 'a') ? "rax" : "rcx";
-    default:
-        error("Unknown data size: %s: %d", ty2s(ty), ty->size);
-    }
-}
-
 static void push(char *reg) {
     SAVE;
     assert(strcmp(reg, "D"));
