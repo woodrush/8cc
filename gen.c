@@ -619,8 +619,7 @@ static void emit_post_inc_dec(Node *node, char *op) {
 }
 
 static void emit_je(char *label) {
-    emit("test #rax, #rax");
-    emit("je %s", label);
+    emit("jeq %s, A, 0", label);
 }
 
 static void emit_label(char *label) {
