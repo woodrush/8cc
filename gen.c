@@ -171,7 +171,8 @@ static void emit_gload(Type *ty, char *label, int off) {
         return;
     }
     emit("mov B, %s", label);
-    emit("add B, %d", off);
+    if (off)
+        emit("add B, %d", MOD24(off));
     emit("load A, B");
     maybe_emit_bitshift_load(ty);
 }
@@ -222,7 +223,8 @@ static void emit_gsave(char *varname, Type *ty, int off) {
     maybe_emit_bitshift_save(ty, addr);
 #endif
     emit("mov B, %s", varname);
-    emit("add B, %d", off);
+    if (off)
+        emit("add B, %d", MOD24(off));
     emit("store A, B");
 }
 
