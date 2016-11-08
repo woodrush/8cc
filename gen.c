@@ -1282,8 +1282,14 @@ static void emit_bss(Node *v) {
 #if 0
     if (!v->declvar->ty->isstatic)
         emit(".global %s", v->declvar->glabel);
-#endif
     emit(".lcomm %s, %d", v->declvar->glabel, v->declvar->ty->size);
+#else
+    int i;
+    emit("%s:\n", v->declvar->glabel);
+    for (i = 0; i < v->declvar->ty->size; i++) {
+      emit(".long 0");
+    }
+#endif
 }
 
 static void emit_global_var(Node *v) {
