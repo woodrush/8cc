@@ -1219,7 +1219,13 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
             if (base->kind != AST_GVAR)
                 error("global variable expected, but got %s", node2s(base));
             assert(ty->ptr);
+#if 1
+            if (v * ty->ptr->size)
+                error("TODO: fix! %d %d", v, ty->ptr->size);
+            emit(".long %s", base->glabel);
+#else
             emit(".long %s+%u", base->glabel, v * ty->ptr->size);
+#endif
         }
         break;
     default:
