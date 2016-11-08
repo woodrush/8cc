@@ -1043,7 +1043,10 @@ static void emit_bitor(Node *node) {
 static void emit_bitnot(Node *node) {
     SAVE;
     emit_expr(node->left);
-    emit("not #rax");
+    push("A");
+    emit_call_builtin("__builtin_not");
+    emit("add SP, 1");
+    stackpos -= 2;
 }
 
 static void emit_cast(Node *node) {
