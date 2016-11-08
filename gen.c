@@ -541,7 +541,7 @@ static void emit_addr(Node *node) {
         emit("add A, %d", node->ty->offset);
         break;
     case AST_FUNCDESG:
-        emit("lea %s(#rip), #rax", node->fname);
+        emit("mov A, %s", node->fname);
         break;
     default:
         error("internal error: %s", node2s(node));
