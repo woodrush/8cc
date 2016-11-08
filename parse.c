@@ -2126,8 +2126,13 @@ static Type *read_decl_spec(int *rsclass) {
     case kvoid:   ty = type_void; goto end;
     case kbool:   ty = make_numtype(KIND_BOOL, false); goto end;
     case kchar:   ty = make_numtype(KIND_CHAR, sig == kunsigned); goto end;
+#if 0
     case kfloat:  ty = make_numtype(KIND_FLOAT, false); goto end;
     case kdouble: ty = make_numtype(size == klong ? KIND_LDOUBLE : KIND_DOUBLE, false); goto end;
+#else
+    case kfloat:  ty = make_numtype(KIND_INT, false); goto end;
+    case kdouble: ty = make_numtype(KIND_INT, false); goto end;
+#endif
     default: break;
     }
     switch (size) {
