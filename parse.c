@@ -57,9 +57,9 @@ Type *type_ushort = &(Type){ KIND_SHORT, 1, 1, true };
 Type *type_uint = &(Type){ KIND_INT, 1, 1, true };
 Type *type_ulong = &(Type){ KIND_LONG, 1, 1, true };
 Type *type_ullong = &(Type){ KIND_LLONG, 1, 1, true };
-Type *type_float = &(Type){ KIND_FLOAT, 4, 4, false };
-Type *type_double = &(Type){ KIND_DOUBLE, 8, 8, false };
-Type *type_ldouble = &(Type){ KIND_LDOUBLE, 8, 8, false };
+Type *type_float = &(Type){ KIND_INT, 1, 1, false };
+Type *type_double = &(Type){ KIND_INT, 1, 1, false };
+Type *type_ldouble = &(Type){ KIND_INT, 1, 1, false };
 Type *type_enum = &(Type){ KIND_ENUM, 1, 1, false };
 
 static Type* make_ptr_type(Type *ty);
