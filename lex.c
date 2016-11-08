@@ -63,13 +63,14 @@ void lex_init(char *filename) {
 #endif
 }
 
-static Pos get_pos(int delta) {
+static void get_pos(int delta, Pos* pos) {
     File *f = current_file();
-    return (Pos){ f->line, f->column + delta };
+    pos->line = f->line;
+    pos->column = f->column + delta;
 }
 
 static void mark() {
-    pos = get_pos(0);
+    get_pos(0, &pos);
 }
 
 static Token *make_token(Token *tmpl) {
@@ -261,7 +262,8 @@ static int read_octal_char(int c) {
 
 // Reads a \x escape sequence.
 static int read_hex_char() {
-    Pos p = get_pos(-2);
+    Pos p;
+    get_pos(-2, &p);
     int c = readc();
     if (!isxdigit(c))
         errorp(p, "\\x is not followed by a hexadecimal character: %c", c);
@@ -289,7 +291,8 @@ static bool is_valid_ucn(unsigned int c) {
 
 // Reads \u or \U escape sequences. len is 4 or 8, respecitvely.
 static int read_universal_char(int len) {
-    Pos p = get_pos(-2);
+    Pos p;
+    get_pos(-2, &p);
     unsigned int r = 0;
     for (int i = 0; i < len; i++) {
         char c = readc();
@@ -306,7 +309,8 @@ static int read_universal_char(int len) {
 }
 
 static int read_escaped_char() {
-    Pos p = get_pos(-1);
+    Pos p;
+    get_pos(-1, &p);
     int c = readc();
     // This switch-cases is an interesting example of magical aspects
     // of self-hosting compilers. Here, we teach the compiler about
@@ -394,7 +398,8 @@ static Token *read_ident(char c) {
 }
 
 static void skip_block_comment() {
-    Pos p = get_pos(-2);
+    Pos p;
+    get_pos(-2, &p);
     bool maybe_end = false;
     for (;;) {
         int c = readc();
@@ -534,7 +539,8 @@ char *read_header_file_name(bool *std) {
     if (!buffer_empty())
         return NULL;
     skip_space();
-    Pos p = get_pos(0);
+    Pos p;
+    get_pos(0, &p);
     char close;
     if (next('"')) {
         *std = false;
@@ -588,7 +594,8 @@ Token *lex_string(char *s) {
     stream_stash(make_file_string(s));
     Token *r = do_read_token();
     next('\n');
-    Pos p = get_pos(0);
+    Pos p;
+    get_pos(0, &p);
     if (lex_peek() != EOF)
         errorp(p, "unconsumed input: %s", s);
     stream_unstash();
