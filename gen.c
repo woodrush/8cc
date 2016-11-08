@@ -1136,7 +1136,7 @@ static void emit_expr(Node *node) {
 
 static void emit_zero(int size) {
     SAVE;
-    for (; size > 0; size--)     emit(".byte 0");
+    for (; size > 0; size--)     emit(".long 0");
 }
 
 static void emit_padding(Node *node, int off) {
