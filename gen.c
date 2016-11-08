@@ -14,8 +14,10 @@ bool dumpsource = true;
 static int TAB = 8;
 static Vector *functions = &EMPTY_VECTOR;
 static int stackpos;
+#if 0
 static int numgp;
 static int numfp;
+#endif
 static FILE *outputfp;
 static int is_main;
 
@@ -778,6 +780,8 @@ static void emit_gvar(Node *node) {
     emit_gload(node->ty, node->glabel, 0);
 }
 
+#if 0
+
 static void emit_builtin_return_address(Node *node) {
     push("r11");
     assert(vec_len(node->args) == 1);
@@ -822,7 +826,10 @@ static void emit_builtin_va_start(Node *node) {
     pop("rcx");
 }
 
+#endif
+
 static bool maybe_emit_builtin(Node *node) {
+#if 0
     SAVE;
     if (!strcmp("__builtin_return_address", node->fname)) {
         emit_builtin_return_address(node);
@@ -837,6 +844,9 @@ static bool maybe_emit_builtin(Node *node) {
         return true;
     }
     return false;
+#else
+    return false;
+#endif
 }
 
 static void classify_args(Vector *ints, Vector *args) {
