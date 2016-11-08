@@ -710,6 +710,7 @@ static char **split(char *buf) {
     return r;
 }
 
+#ifndef __eir__
 static char **read_source_file(char *file) {
     FILE *fp = fopen(file, "r");
     if (!fp)
@@ -723,16 +724,21 @@ static char **read_source_file(char *file) {
     buf[st.st_size] = '\0';
     return split(buf);
 }
+#endif
 
 static void maybe_print_source_line(char *file, int line) {
     if (!dumpsource)
         return;
     char **lines = map_get(source_lines, file);
     if (!lines) {
+#ifdef __eir__
+        return;
+#else
         lines = read_source_file(file);
         if (!lines)
             return;
         map_put(source_lines, file, lines);
+#endif
     }
     int len = 0;
     for (char **p = lines; *p; p++)

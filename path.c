@@ -1,5 +1,7 @@
 // Copyright 2014 Rui Ueyama. Released under the MIT license.
 
+#ifndef __eir__
+
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
@@ -48,3 +50,5 @@ char *fullpath(char *path) {
         error("getcwd failed: %s", strerror(errno));
     return clean(format("%s/%s", cwd, path));
 }
+
+#endif

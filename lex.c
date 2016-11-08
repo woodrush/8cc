@@ -55,10 +55,12 @@ void lex_init(char *filename) {
         stream_push(make_file(stdin, "-"));
         return;
     }
+#ifndef __eir__
     FILE *fp = fopen(filename, "r");
     if (!fp)
         error("Cannot open %s: %s", filename, strerror(errno));
     stream_push(make_file(fp, filename));
+#endif
 }
 
 static Pos get_pos(int delta) {

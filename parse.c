@@ -736,7 +736,11 @@ static Node *read_int(Token *tok) {
 static Node *read_float(Token *tok) {
     char *s = tok->sval;
     char *end;
+#ifdef __eir__
+    double v = strtol(s, &end, 10);
+#else
     double v = strtod(s, &end);
+#endif
     // C11 6.4.4.2p4: The default type for flonum is double.
     if (!strcasecmp(end, "l"))
         return ast_floattype(type_ldouble, v);

@@ -45,6 +45,7 @@ static void usage(int exitcode) {
     exit(exitcode);
 }
 
+#ifndef __eir__
 static void delete_temp_files() {
     for (int i = 0; i < vec_len(tmpfiles); i++)
         unlink(vec_get(tmpfiles, i));
@@ -144,6 +145,7 @@ static void parseopt(int argc, char **argv) {
         error("One of -a, -c, -E or -S must be specified");
     infile = argv[optind];
 }
+#endif
 
 char *get_base_file() {
     return infile;
@@ -165,14 +167,20 @@ static void preprocess() {
 }
 
 int main(int argc, char **argv) {
+#ifdef __eir__
+    infile = "-";
+#else
     setbuf(stdout, NULL);
     if (atexit(delete_temp_files))
         perror("atexit");
     parseopt(argc, argv);
+#endif
     lex_init(infile);
     cpp_init();
     parse_init();
+#ifndef __eir__
     set_output_file(open_asmfile());
+#endif
     if (buf_len(cppdefs) > 0)
         read_from_string(buf_body(cppdefs));
 
@@ -190,6 +198,7 @@ int main(int argc, char **argv) {
 
     close_output_file();
 
+#ifndef __eir__
     if (!dumpast && !dumpasm) {
         if (!outfile)
             outfile = replace_suffix(base(infile), 'o');
@@ -204,5 +213,6 @@ int main(int argc, char **argv) {
         if (status < 0)
             error("as failed");
     }
+#endif
     return 0;
 }

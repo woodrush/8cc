@@ -675,6 +675,7 @@ static bool guarded(char *path) {
     return r;
 }
 
+#ifndef __eir__
 static bool try_include(char *dir, char *filename, bool isimport) {
     char *path = fullpath(format("%s/%s", dir, filename));
     if (map_get(once, path))
@@ -689,8 +690,12 @@ static bool try_include(char *dir, char *filename, bool isimport) {
     stream_push(make_file(fp, path));
     return true;
 }
+#endif
 
 static void read_include(Token *hash, File *file, bool isimport) {
+#ifdef __eir__
+    error("#include is not supported");
+#else
     bool std;
     char *filename = read_cpp_header_name(hash, &std);
     expect_newline();
@@ -709,9 +714,13 @@ static void read_include(Token *hash, File *file, bool isimport) {
             return;
   err:
     errort(hash, "cannot find header file: %s", filename);
+#endif
 }
 
 static void read_include_next(Token *hash, File *file) {
+#ifdef __eir__
+    error("#include_next is not supported");
+#else
     // [GNU] #include_next is a directive to include the "next" file
     // from the search path. This feature is used to override a
     // header file without getting into infinite inclusion loop.
@@ -736,6 +745,7 @@ static void read_include_next(Token *hash, File *file) {
             return;
   err:
     errort(hash, "cannot find header file: %s", filename);
+#endif
 }
 
 /*
@@ -859,6 +869,7 @@ static void make_token_pushback(Token *tmpl, int kind, char *sval) {
     unget_token(tok);
 }
 
+#ifndef __eir__
 static void handle_date_macro(Token *tmpl) {
     char buf[20];
     strftime(buf, sizeof(buf), "%b %e %Y", &now);
@@ -878,6 +889,7 @@ static void handle_timestamp_macro(Token *tmpl) {
     strftime(buf, sizeof(buf), "%a %b %e %T %Y", localtime(&tmpl->file->mtime));
     make_token_pushback(tmpl, TSTRING, strdup(buf));
 }
+#endif
 
 static void handle_file_macro(Token *tmpl) {
     make_token_pushback(tmpl, TSTRING, tmpl->file->name);
@@ -944,8 +956,10 @@ static void init_predefined_macros() {
     vec_push(std_include_path, "/usr/include/x86_64-linux-gnu");
 #endif
 
+#ifndef __eir__
     define_special_macro("__DATE__", handle_date_macro);
     define_special_macro("__TIME__", handle_time_macro);
+#endif
     define_special_macro("__FILE__", handle_file_macro);
     define_special_macro("__LINE__", handle_line_macro);
     define_special_macro("_Pragma",  handle_pragma_macro);
@@ -953,7 +967,9 @@ static void init_predefined_macros() {
     define_special_macro("__BASE_FILE__", handle_base_file_macro);
     define_special_macro("__COUNTER__", handle_counter_macro);
     define_special_macro("__INCLUDE_LEVEL__", handle_include_level_macro);
+#ifndef __eir__
     define_special_macro("__TIMESTAMP__", handle_timestamp_macro);
+#endif
 
 #if 0
     read_from_string("#include <" BUILD_DIR "/include/8cc.h>");
@@ -987,8 +1003,10 @@ static void init_predefined_macros() {
 }
 
 void init_now() {
+#ifndef __eir__
     time_t timet = time(NULL);
     localtime_r(&timet, &now);
+#endif
 }
 
 void cpp_init() {
