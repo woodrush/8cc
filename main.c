@@ -180,9 +180,9 @@ int main(int argc, char **argv) {
     parse_init();
 #ifndef __eir__
     set_output_file(open_asmfile());
-#endif
     if (buf_len(cppdefs) > 0)
         read_from_string(buf_body(cppdefs));
+#endif
 
     if (cpponly)
         preprocess();
