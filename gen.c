@@ -547,26 +547,25 @@ static void emit_addr(Node *node) {
 }
 
 static void emit_copy_struct(Node *left, Node *right) {
-    push("rcx");
-    push("r11");
+    push("B");
+    push("C");
     emit_addr(right);
-    emit("mov #rax, #rcx");
+    push("A");
     emit_addr(left);
+    emit("mov C, A");
+    pop("A");
+    emit("mov B, A");
     int i = 0;
-    for (; i < left->ty->size; i += 8) {
-        emit("movq %d(#rcx), #r11", i);
-        emit("movq #r11, %d(#rax)", i);
-    }
-    for (; i < left->ty->size; i += 4) {
-        emit("movl %d(#rcx), #r11", i);
-        emit("movl #r11, %d(#rax)", i);
-    }
     for (; i < left->ty->size; i++) {
-        emit("movb %d(#rcx), #r11", i);
-        emit("movb #r11, %d(#rax)", i);
+        emit("load A, B");
+        emit("store A, C");
+        emit("add B, 1");
+        emit("add C, 1");
     }
-    pop("r11");
-    pop("rcx");
+    pop("A");
+    emit("mov C, A");
+    pop("A");
+    emit("mov B, A");
 }
 
 static int cmpinit(const void *x, const void *y) {
@@ -1052,8 +1051,7 @@ static void emit_comma(Node *node) {
 
 static void emit_assign(Node *node) {
     SAVE;
-    if (node->left->ty->kind == KIND_STRUCT &&
-        node->left->ty->size > 8) {
+    if (node->left->ty->kind == KIND_STRUCT) {
         emit_copy_struct(node->left, node->right);
     } else {
         emit_expr(node->right);
