@@ -10,12 +10,20 @@
 #define TOMBSTONE ((void *)-1)
 
 static uint32_t hash(char *p) {
+#ifdef __eir__
+    uint32_t r = 0x1c9dc5;
+    for (; *p; p++) {
+        r ^= *p;
+        r *= 403;
+    }
+#else
     // FNV hash
     uint32_t r = 2166136261;
     for (; *p; p++) {
         r ^= *p;
         r *= 16777619;
     }
+#endif
     return r;
 }
 
@@ -37,9 +45,15 @@ static void maybe_rehash(Map *m) {
         m->size = INIT_SIZE;
         return;
     }
+#ifdef __eir__
+    if (m->nused < m->size * 7 / 10)
+        return;
+    int newsize = (m->nelem < m->size * 35 / 100) ? m->size : m->size * 2;
+#else
     if (m->nused < m->size * 0.7)
         return;
     int newsize = (m->nelem < m->size * 0.35) ? m->size : m->size * 2;
+#endif
     char **k = calloc(newsize, sizeof(char *));
     void **v = calloc(newsize, sizeof(void *));
     int mask = newsize - 1;
