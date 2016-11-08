@@ -413,6 +413,10 @@ static void emit_binop_int_arith(Node *node) {
         case '*':
         case '/':
         case '%':
+        case '^':
+        case OP_SAL:
+        case OP_SAR:
+        case OP_SHR:
             push("B");
             push("A");
             if (node->kind == '*')
@@ -421,14 +425,14 @@ static void emit_binop_int_arith(Node *node) {
                 emit_call_builtin("__builtin_div");
             else if (node->kind == '%')
                 emit_call_builtin("__builtin_mod");
+            else if (node->kind == '^')
+                emit_call_builtin("__builtin_xor");
+            else if (node->kind == OP_SAL)
+                emit_call_builtin("__builtin_shl");
+            else if (node->kind == OP_SAR || node->kind == OP_SHR)
+                emit_call_builtin("__builtin_shr");
             emit("add SP, 2");
             stackpos -= 3;
-            break;
-        case '^':
-        case OP_SAL:
-        case OP_SAR:
-        case OP_SHR:
-            assert(0);
             break;
         default: error("invalid operator '%d'", node->kind);
     }
@@ -1008,19 +1012,23 @@ static void emit_lognot(Node *node) {
 static void emit_bitand(Node *node) {
     SAVE;
     emit_expr(node->left);
-    push("rax");
+    push("A");
     emit_expr(node->right);
-    pop("rcx");
-    emit("and #rcx, #rax");
+    push("A");
+    emit_call_builtin("__builtin_and");
+    emit("add SP, 2");
+    stackpos -= 3;
 }
 
 static void emit_bitor(Node *node) {
     SAVE;
     emit_expr(node->left);
-    push("rax");
+    push("A");
     emit_expr(node->right);
-    pop("rcx");
-    emit("or #rcx, #rax");
+    push("A");
+    emit_call_builtin("__builtin_or");
+    emit("add SP, 2");
+    stackpos -= 3;
 }
 
 static void emit_bitnot(Node *node) {
