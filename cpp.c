@@ -97,7 +97,7 @@ static Token *copy_token(Token *tok) {
     return r;
 }
 
-static void expect(char id) {
+static void cpp_expect(char id) {
     Token *tok = lex();
     if (!is_keyword(tok, id))
         errort(tok, "%c expected, but got %s", id, tok2s(tok));
@@ -111,7 +111,7 @@ bool is_ident(Token *tok, char *s) {
     return tok->kind == TIDENT && !strcmp(tok->sval, s);
 }
 
-static bool next(int id) {
+static bool cpp_next(int id) {
     Token *tok = lex();
     if (is_keyword(tok, id))
         return true;
@@ -131,7 +131,7 @@ static void propagate_space(Vector *tokens, Token *tmpl) {
  * Macro expander
  */
 
-static Token *read_ident() {
+static Token *cpp_read_ident() {
     Token *tok = lex();
     if (tok->kind != TIDENT)
         errort(tok, "identifier expected, but got %s", tok2s(tok));
@@ -342,11 +342,11 @@ static Token *read_expand_newline() {
         return read_expand();
     }
     case MACRO_FUNC: {
-        if (!next('('))
+        if (!cpp_next('('))
             return tok;
         Vector *args = read_args(tok, macro);
         Token *rparen = peek_token();
-        expect(')');
+        cpp_expect(')');
         Set *hideset = set_add(set_intersection(tok->hideset, rparen->hideset), name);
         Vector *tokens = subst(macro, args, hideset);
         propagate_space(tokens, tok);
@@ -384,14 +384,14 @@ static bool read_funclike_macro_params(Token *name, Map *param) {
             errort(name, "missing ')' in macro parameter list");
         if (is_keyword(tok, KELLIPSIS)) {
             map_put(param, "__VA_ARGS__", make_macro_token(pos++, true));
-            expect(')');
+            cpp_expect(')');
             return true;
         }
         if (tok->kind != TIDENT)
             errort(tok, "identifier expected, but got %s", tok2s(tok));
         char *arg = tok->sval;
-        if (next(KELLIPSIS)) {
-            expect(')');
+        if (cpp_next(KELLIPSIS)) {
+            cpp_expect(')');
             map_put(param, arg, make_macro_token(pos++, true));
             return true;
         }
@@ -453,7 +453,7 @@ static void read_obj_macro(char *name) {
  */
 
 static void read_define() {
-    Token *name = read_ident();
+    Token *name = cpp_read_ident();
     Token *tok = lex();
     if (is_keyword(tok, '(') && !tok->space) {
         read_funclike_macro(name);
@@ -468,7 +468,7 @@ static void read_define() {
  */
 
 static void read_undef() {
-    Token *name = read_ident();
+    Token *name = cpp_read_ident();
     expect_newline();
     map_remove(macros, name->sval);
 }
@@ -481,7 +481,7 @@ static Token *read_defined_op() {
     Token *tok = lex();
     if (is_keyword(tok, '(')) {
         tok = lex();
-        expect(')');
+        cpp_expect(')');
     }
     if (tok->kind != TIDENT)
         errort(tok, "identifier expected, but got %s", tok2s(tok));
@@ -757,7 +757,7 @@ static void parse_pragma_operand(Token *tok) {
 }
 
 static void read_pragma() {
-    Token *tok = read_ident();
+    Token *tok = cpp_read_ident();
     parse_pragma_operand(tok);
 }
 
@@ -888,11 +888,11 @@ static void handle_line_macro(Token *tmpl) {
 }
 
 static void handle_pragma_macro(Token *tmpl) {
-    expect('(');
+    cpp_expect('(');
     Token *operand = read_token();
     if (operand->kind != TSTRING)
         errort(operand, "_Pragma takes a string literal, but got %s", tok2s(operand));
-    expect(')');
+    cpp_expect(')');
     parse_pragma_operand(operand);
     make_token_pushback(tmpl, TNUMBER, "1");
 }
@@ -935,12 +935,14 @@ static void init_keywords() {
 }
 
 static void init_predefined_macros() {
+#if 0
     vec_push(std_include_path, BUILD_DIR "/include");
     vec_push(std_include_path, "/usr/local/lib/8cc/include");
     vec_push(std_include_path, "/usr/local/include");
     vec_push(std_include_path, "/usr/include");
     vec_push(std_include_path, "/usr/include/linux");
     vec_push(std_include_path, "/usr/include/x86_64-linux-gnu");
+#endif
 
     define_special_macro("__DATE__", handle_date_macro);
     define_special_macro("__TIME__", handle_time_macro);
@@ -953,7 +955,35 @@ static void init_predefined_macros() {
     define_special_macro("__INCLUDE_LEVEL__", handle_include_level_macro);
     define_special_macro("__TIMESTAMP__", handle_timestamp_macro);
 
+#if 0
     read_from_string("#include <" BUILD_DIR "/include/8cc.h>");
+#else
+    read_from_string("#define _LP64 1");
+    read_from_string("#define __8cc__ 1");
+    read_from_string("#define __ELF__ 1");
+    read_from_string("#define __LP64__ 1");
+    read_from_string("#define __SIZEOF_DOUBLE__ 1");
+    read_from_string("#define __SIZEOF_FLOAT__ 1");
+    read_from_string("#define __SIZEOF_INT__ 1");
+    read_from_string("#define __SIZEOF_LONG_DOUBLE__ 1");
+    read_from_string("#define __SIZEOF_LONG_LONG__ 1");
+    read_from_string("#define __SIZEOF_LONG__ 1");
+    read_from_string("#define __SIZEOF_POINTER__ 1");
+    read_from_string("#define __SIZEOF_PTRDIFF_T__ 1");
+    read_from_string("#define __SIZEOF_SHORT__ 1");
+    read_from_string("#define __SIZEOF_SIZE_T__ 1");
+    read_from_string("#define __STDC_HOSTED__ 1");
+    read_from_string("#define __STDC_ISO_10646__ 201103L");
+    read_from_string("#define __STDC_NO_ATOMICS__ 1");
+    read_from_string("#define __STDC_NO_COMPLEX__ 1");
+    read_from_string("#define __STDC_NO_THREADS__ 1");
+    read_from_string("#define __STDC_NO_VLA__ 1");
+    read_from_string("#define __STDC_UTF_16__ 1");
+    read_from_string("#define __STDC_UTF_32__ 1");
+    read_from_string("#define __STDC_VERSION__ 201112L");
+    read_from_string("#define __STDC__ 1");
+    read_from_string("#define __eir__ 1");
+#endif
 }
 
 void init_now() {

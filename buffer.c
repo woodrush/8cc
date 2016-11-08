@@ -6,12 +6,12 @@
 #include <string.h>
 #include "8cc.h"
 
-#define INIT_SIZE 8
+#define BUFFER_INIT_SIZE 8
 
 Buffer *make_buffer() {
     Buffer *r = malloc(sizeof(Buffer));
-    r->body = malloc(INIT_SIZE);
-    r->nalloc = INIT_SIZE;
+    r->body = malloc(BUFFER_INIT_SIZE);
+    r->nalloc = BUFFER_INIT_SIZE;
     r->len = 0;
     return r;
 }

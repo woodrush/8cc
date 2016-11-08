@@ -110,7 +110,7 @@ static bool iswhitespace(int c) {
     return c == ' ' || c == '\t' || c == '\f' || c == '\v';
 }
 
-static int peek() {
+static int lex_peek() {
     int r = readc();
     unreadc(r);
     return r;
@@ -224,7 +224,7 @@ void skip_cond_incl() {
 
 // Reads a number literal. Lexer's grammar on numbers is not strict.
 // Integers and floating point numbers and different base numbers are not distinguished.
-static Token *read_number(char c) {
+static Token *lex_read_number(char c) {
     Buffer *b = make_buffer();
     buf_write(b, c);
     char last = c;
@@ -242,7 +242,7 @@ static Token *read_number(char c) {
 }
 
 static bool nextoct() {
-    int c = peek();
+    int c = lex_peek();
     return '0' <= c && c <= '7';
 }
 
@@ -358,7 +358,7 @@ static Token *read_string(int enc) {
             buf_write(b, c);
             continue;
         }
-        bool isucs = (peek() == 'u' || peek() == 'U');
+        bool isucs = (lex_peek() == 'u' || lex_peek() == 'U');
         c = read_escaped_char();
         if (isucs) {
             write_utf8(b, c);
@@ -381,7 +381,7 @@ static Token *read_ident(char c) {
         }
         // C11 6.4.2.1: \u or \U characters (universal-character-name)
         // are allowed to be part of identifiers.
-        if (c == '\\' && (peek() == 'u' || peek() == 'U')) {
+        if (c == '\\' && (lex_peek() == 'u' || lex_peek() == 'U')) {
             write_utf8(b, read_escaped_char());
             continue;
         }
@@ -456,7 +456,7 @@ static Token *do_read_token() {
     case 0x80 ... 0xFD:
         return read_ident(c);
     case '0' ... '9':
-        return read_number(c);
+        return lex_read_number(c);
     case 'L': case 'U': {
         // Wide/char32_t character/string literal
         int enc = (c == 'L') ? ENC_WCHAR : ENC_CHAR32;
@@ -475,8 +475,8 @@ static Token *do_read_token() {
         }
         return read_ident(c);
     case '.':
-        if (isdigit(peek()))
-            return read_number(c);
+        if (isdigit(lex_peek()))
+            return lex_read_number(c);
         if (next('.')) {
             if (next('.'))
                 return make_keyword(KELLIPSIS);
@@ -587,7 +587,7 @@ Token *lex_string(char *s) {
     Token *r = do_read_token();
     next('\n');
     Pos p = get_pos(0);
-    if (peek() != EOF)
+    if (lex_peek() != EOF)
         errorp(p, "unconsumed input: %s", s);
     stream_unstash();
     return r;

@@ -83,7 +83,7 @@ static int readc_string(File *f) {
     return c;
 }
 
-static int get() {
+static int file_get() {
     File *f = vec_tail(files);
     int c;
     if (f->buflen > 0) {
@@ -104,7 +104,7 @@ static int get() {
 
 int readc() {
     for (;;) {
-        int c = get();
+        int c = file_get();
         if (c == EOF) {
             if (vec_len(files) == 1)
                 return c;
@@ -113,7 +113,7 @@ int readc() {
         }
         if (c != '\\')
             return c;
-        int c2 = get();
+        int c2 = file_get();
         if (c2 == '\n')
             continue;
         unreadc(c2);
