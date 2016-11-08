@@ -754,6 +754,9 @@ static void read_include_next(Token *hash, File *file) {
 
 static void parse_pragma_operand(Token *tok) {
     char *s = tok->sval;
+#ifdef __eir__
+    errort(tok, "unknown #pragma: %s", s);
+#else
     if (!strcmp(s, "once")) {
         char *path = fullpath(tok->file->name);
         map_put(once, path, (void *)1);
@@ -764,6 +767,7 @@ static void parse_pragma_operand(Token *tok) {
     } else {
         errort(tok, "unknown #pragma: %s", s);
     }
+#endif
 }
 
 static void read_pragma() {
