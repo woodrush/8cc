@@ -362,7 +362,7 @@ static Type* make_ptr_type(Type *ty) {
 
 static Type* make_array_type(Type *ty, int len) {
     int size;
-    if (len < 0)
+    if (len == -1)
         size = -1;
     else
         size = ty->size * len;
