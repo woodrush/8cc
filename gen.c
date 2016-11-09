@@ -212,8 +212,7 @@ static void emit_lload(Type *ty, char *base, int off) {
 
 static void maybe_convert_bool(Type *ty) {
     if (ty->kind == KIND_BOOL) {
-        emit("test #rax, #rax");
-        emit("setne #al");
+        emit("ne A, 0");
     }
 }
 
