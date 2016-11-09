@@ -380,10 +380,8 @@ static void emit_to_bool(Type *ty) {
     if (is_flotype(ty)) {
         assert_float();
     } else {
-        emit("cmp $0, #rax");
-        emit("setne #al");
+        emit("ne A, 0");
     }
-    emit("movzb #al, #eax");
 }
 
 static void emit_comp(char *inst, Node *node) {
@@ -874,7 +872,7 @@ static int emit_args(Vector *vals) {
 
 static void maybe_booleanize_retval(Type *ty) {
     if (ty->kind == KIND_BOOL) {
-        emit("movzx #al, #rax");
+        emit("ne A, 0");
     }
 }
 
