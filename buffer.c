@@ -104,7 +104,11 @@ static void print(Buffer *b, char c) {
     } else if (isprint(c)) {
         buf_printf(b, "%c", c);
     } else {
+#ifdef __eir__
+        buf_printf(b, "\\x%x", c);
+#else
         buf_printf(b, "\\x%02x", c);
+#endif
     }
 }
 
