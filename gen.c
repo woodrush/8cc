@@ -1241,7 +1241,9 @@ static void do_emit_data(Vector *inits, int size, int off, int depth) {
         Node *node = vec_get(inits, i);
         Node *v = node->initval;
         emit_padding(node, off);
-        if (node->totype->bitsize > 0 && node->totype->bitsize != -1) {
+        // TODO: Fix!
+        //if (node->totype->bitsize > 0 && node->totype->bitsize != -1) {
+        if (0) {
             assert(node->totype->bitoff == 0);
             long data = eval_intexpr(v, NULL);
             Type *totype = node->totype;
