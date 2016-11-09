@@ -134,6 +134,7 @@ static void pop(char *reg) {
     assert(stackpos >= 0);
 }
 
+#if 0
 static void maybe_emit_bitshift_load(Type *ty) {
     SAVE;
     if (ty->bitsize <= 0)
@@ -145,7 +146,6 @@ static void maybe_emit_bitshift_load(Type *ty) {
     pop("rcx");
 }
 
-#if 0
 static void maybe_emit_bitshift_save(Type *ty, char *addr) {
     SAVE;
     if (ty->bitsize <= 0)
@@ -176,7 +176,9 @@ static void emit_gload(Type *ty, char *label, int off) {
     if (off)
         emit("add B, %d", MOD24(off));
     emit("load A, B");
+#if 0
     maybe_emit_bitshift_load(ty);
+#endif
 }
 
 static void emit_intcast(Type *ty) {
