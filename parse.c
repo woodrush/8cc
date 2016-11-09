@@ -512,7 +512,7 @@ static Node *conv(Node *node) {
         // C11 6.3.1.1p2: The integer promotions
         return ast_conv(type_int, node);
     case KIND_INT:
-        if (ty->bitsize > 0)
+        if (ty->bitsize > 0 && ty->bitsize != -1)
             return ast_conv(type_int, node);
     }
     return node;
@@ -1458,7 +1458,7 @@ static Dict *update_struct_offset(int *rsize, int *align, Vector *fields) {
             bitoff = 0;
             continue;
         }
-        if (fieldtype->bitsize > 0) {
+        if (fieldtype->bitsize > 0 && fieldtype->bitsize != -1) {
             int bit = fieldtype->size * 8;
             int room = bit - (off * 8 + bitoff) % bit;
             if (fieldtype->bitsize <= room) {
