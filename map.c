@@ -6,24 +6,78 @@
 #include <string.h>
 #include "8cc.h"
 
+#ifdef __eir__
+
+Map *make_map(void) {
+    Map *r = malloc(sizeof(Map));
+    r->parent = NULL;
+    r->v = make_vector();
+    return r;
+}
+
+Map *make_map_parent(Map *parent) {
+    Map *r = malloc(sizeof(Map));
+    r->parent = parent;
+    r->v = make_vector();
+    return r;
+}
+
+static int map_find(Map *m, char *key) {
+    if (!m->v) {
+        m->v = make_vector();
+        return -1;
+    }
+    for (int i = 0; i < vec_len(m->v); i += 2) {
+        if (!strcmp(vec_get(m->v, i), key))
+            return i;
+    }
+    return -1;
+}
+
+void *map_get(Map *m, char *key) {
+    int i = map_find(m, key);
+    if (i != -1)
+        return vec_get(m->v, i + 1);
+    if (m->parent)
+        return map_get(m->parent, key);
+    return NULL;
+}
+
+void map_put(Map *m, char *key, void *val) {
+    int i = map_find(m, key);
+    if (i != -1) {
+        vec_set(m->v, i + 1, val);
+    } else {
+        vec_push(m->v, key);
+        vec_push(m->v, val);
+    }
+}
+
+void map_remove(Map *m, char *key) {
+    int i = map_find(m, key);
+    if (i != -1) {
+        vec_set(m->v, i, "");
+    }
+}
+
+size_t map_len(Map *m) {
+    if (!m->v)
+        return 0;
+    return vec_len(m->v) / 2;
+}
+
+#else
+
 #define INIT_SIZE 16
 #define TOMBSTONE ((void *)-1)
 
 static uint32_t hash(char *p) {
-#ifdef __eir__
-    uint32_t r = 0x1c9dc5;
-    for (; *p; p++) {
-        r ^= *p;
-        r *= 403;
-    }
-#else
     // FNV hash
     uint32_t r = 2166136261;
     for (; *p; p++) {
         r ^= *p;
         r *= 16777619;
     }
-#endif
     return r;
 }
 
@@ -45,15 +99,9 @@ static void maybe_rehash(Map *m) {
         m->size = INIT_SIZE;
         return;
     }
-#ifdef __eir__
     if (m->nused < m->size * 7 / 10)
         return;
     int newsize = (m->nelem < m->size * 35 / 100) ? m->size : m->size * 2;
-#else
-    if (m->nused < m->size * 0.7)
-        return;
-    int newsize = (m->nelem < m->size * 0.35) ? m->size : m->size * 2;
-#endif
     char **k = calloc(newsize, sizeof(char *));
     void **v = calloc(newsize, sizeof(void *));
     int mask = newsize - 1;
@@ -144,3 +192,5 @@ void map_remove(Map *m, char *key) {
 size_t map_len(Map *m) {
     return m->nelem;
 }
+
+#endif

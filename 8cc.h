@@ -34,20 +34,25 @@ enum {
     ENC_WCHAR,
 };
 
+typedef struct {
+    void **body;
+    int len;
+    int nalloc;
+} Vector;
+
 typedef struct Map {
+#ifdef __eir__
+    struct Map *parent;
+    Vector* v;
+#else
     struct Map *parent;
     char **key;
     void **val;
     int size;
     int nelem;
     int nused;
+#endif
 } Map;
-
-typedef struct {
-    void **body;
-    int len;
-    int nalloc;
-} Vector;
 
 typedef struct {
     struct Map *map;
