@@ -319,8 +319,8 @@ static Vector *subst(Macro *macro, Vector *args, Set *hideset) {
 }
 
 static void unget_all(Vector *tokens) {
-    for (int i = vec_len(tokens) - 1; i >= 0; i--)
-        unget_token(vec_get(tokens, i));
+    for (int i = vec_len(tokens); i > 0;)
+        unget_token(vec_get(tokens, --i));
 }
 
 // This is "expand" function in the Dave Prosser's document.
