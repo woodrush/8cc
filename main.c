@@ -18,6 +18,7 @@ static bool dontlink;
 static Buffer *cppdefs;
 static Vector *tmpfiles = &EMPTY_VECTOR;
 
+#ifndef __eir__
 static void usage(int exitcode) {
     fprintf(exitcode ? stderr : stdout,
             "Usage: 8cc [ -E ][ -a ] [ -h ] <file>\n\n"
@@ -45,7 +46,6 @@ static void usage(int exitcode) {
     exit(exitcode);
 }
 
-#ifndef __eir__
 static void delete_temp_files() {
     for (int i = 0; i < vec_len(tmpfiles); i++)
         unlink(vec_get(tmpfiles, i));
