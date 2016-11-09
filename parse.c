@@ -1722,7 +1722,7 @@ static void read_struct_initializer(Vector *inits, Type *ty, int off, bool desig
 
 static void read_array_initializer_sub(Vector *inits, Type *ty, int off, bool designated) {
     bool has_brace = maybe_read_brace();
-    bool flexible = (ty->len <= 0);
+    bool flexible = (ty->len <= 0 || ty->len == -1);
     int elemsize = ty->ptr->size;
     int i;
     for (i = 0; flexible || i < ty->len; i++) {
@@ -1754,7 +1754,7 @@ static void read_array_initializer_sub(Vector *inits, Type *ty, int off, bool de
     if (has_brace)
         skip_to_brace();
  finish:
-    if (ty->len < 0) {
+    if (ty->len == -1) {
         ty->len = i;
         ty->size = elemsize * i;
     }

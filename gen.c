@@ -1141,6 +1141,8 @@ static void emit_expr(Node *node) {
 
 static void emit_zero(int size) {
     SAVE;
+    if (size == -1)
+        return;
     for (; size > 0; size--)     emit(".long 0");
 }
 
@@ -1237,11 +1239,11 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
 
 static void do_emit_data(Vector *inits, int size, int off, int depth) {
     SAVE;
-    for (int i = 0; i < vec_len(inits) && 0 < size; i++) {
+    for (int i = 0; i < vec_len(inits) && 0 < size && size != -1; i++) {
         Node *node = vec_get(inits, i);
         Node *v = node->initval;
         emit_padding(node, off);
-        if (node->totype->bitsize > 0) {
+        if (node->totype->bitsize > 0 && node->totype->bitsize != -1) {
             assert(node->totype->bitoff == 0);
             long data = eval_intexpr(v, NULL);
             Type *totype = node->totype;
@@ -1297,7 +1299,7 @@ static void emit_bss(Node *v) {
 #else
     int i;
     emit("%s:\n", v->declvar->glabel);
-    for (i = 0; i < v->declvar->ty->size; i++) {
+    for (i = 0; i < v->declvar->ty->size && v->declvar->ty->size != -1; i++) {
       emit(".long 0");
     }
 #endif
