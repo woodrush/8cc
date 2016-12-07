@@ -414,6 +414,10 @@ bool is_flotype(Type *ty) {
     }
 }
 
+bool is_large_struct(Type *ty) {
+    return ty->kind == KIND_STRUCT && ty->size > 8;
+}
+
 static bool is_arithtype(Type *ty) {
     return is_inttype(ty) || is_flotype(ty);
 }

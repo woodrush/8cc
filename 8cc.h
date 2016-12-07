@@ -395,6 +395,7 @@ char *make_tempname(void);
 char *make_label(void);
 bool is_inttype(Type *ty);
 bool is_flotype(Type *ty);
+bool is_large_struct(Type *ty);
 void *make_pair(void *first, void *second);
 int eval_intexpr(Node *node, Node **addr);
 Node *read_expr(void);

@@ -344,6 +344,14 @@ static void struct_call(void) {
     expect(-25, struct_arg_func(s1, s2));
 }
 
+static void struct_local(void) {
+    struct abi_check s = { 1, 2, 3, 4, 5 };
+    struct abi_check_nest sn = s.z;
+    expect(3, sn.a);
+    expect(4, sn.b);
+    expect(5, sn.c);
+}
+
 void testmain() {
     print("struct");
     t1();
@@ -373,4 +381,5 @@ void testmain() {
     flexible_member();
     empty_struct();
     struct_call();
+    struct_local();
 }

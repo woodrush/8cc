@@ -163,6 +163,22 @@ static void pop(char *reg) {
     assert(stackpos >= 0);
 }
 
+static void copy_struct(int size, int dest_off, char *src_reg, char *dst_reg) {
+    int i = 0;
+    for (; i < size; i += 8) {
+        emit("movq %d(#%s), #r11", i, src_reg);
+        emit("mov #r11, %d(#%s)", dest_off+i, dst_reg);
+    }
+    for (; i < size; i += 4) {
+        emit("movl %d(#%s), #r11", i, src_reg);
+        emit("movl #r11d, %d(#%s)", dest_off+i, dst_reg);
+    }
+    for (; i < size; i++) {
+        emit("movb %d(#%s), #r11", i, src_reg);
+        emit("movb #r11b, %d(#%s)", dest_off+i, dst_reg);
+    }
+}
+
 static int push_struct(int size) {
     SAVE;
     int aligned = align(size, 8);
@@ -170,19 +186,7 @@ static int push_struct(int size) {
     emit("mov #rcx, -8(#rsp)");
     emit("mov #r11, -16(#rsp)");
     emit("mov #rax, #rcx");
-    int i = 0;
-    for (; i < size; i += 8) {
-        emit("movq %d(#rcx), #r11", i);
-        emit("mov #r11, %d(#rsp)", i);
-    }
-    for (; i < size; i += 4) {
-        emit("movl %d(#rcx), #r11", i);
-        emit("movl #r11d, %d(#rsp)", i);
-    }
-    for (; i < size; i++) {
-        emit("movb %d(#rcx), #r11", i);
-        emit("movb #r11b, %d(#rsp)", i);
-    }
+    copy_struct(size, 0, "rcx", "rsp");
     emit("mov -8(#rsp), #rcx");
     emit("mov -16(#rsp), #r11");
     stackpos += aligned;
@@ -259,7 +263,7 @@ static void emit_toint(Type *ty) {
 
 static void emit_lload(Type *ty, char *base, int off) {
     SAVE;
-    if (ty->kind == KIND_ARRAY) {
+    if (ty->kind == KIND_ARRAY || is_large_struct(ty)) {
         emit("lea %d(#%s), #rax", off, base);
     } else if (ty->kind == KIND_FLOAT) {
         emit("movss %d(#%s), #xmm0", off, base);
@@ -295,6 +299,10 @@ static void emit_lsave(Type *ty, int off) {
         emit("movss #xmm0, %d(#rbp)", off);
     } else if (ty->kind == KIND_DOUBLE) {
         emit("movsd #xmm0, %d(#rbp)", off);
+    } else if (is_large_struct(ty)) {
+        push("r11");
+        copy_struct(ty->size, off, "rax", "rbp");
+        pop("r11");
     } else {
         maybe_convert_bool(ty);
         char *reg = get_int_reg(ty, 'a');
@@ -618,19 +626,7 @@ static void emit_copy_struct(Node *left, Node *right) {
     emit_addr(right);
     emit("mov #rax, #rcx");
     emit_addr(left);
-    int i = 0;
-    for (; i < left->ty->size; i += 8) {
-        emit("movq %d(#rcx), #r11", i);
-        emit("movq #r11, %d(#rax)", i);
-    }
-    for (; i < left->ty->size; i += 4) {
-        emit("movl %d(#rcx), #r11", i);
-        emit("movl #r11, %d(#rax)", i);
-    }
-    for (; i < left->ty->size; i++) {
-        emit("movb %d(#rcx), #r11", i);
-        emit("movb #r11, %d(#rax)", i);
-    }
+    copy_struct(left->ty->size, 0, "rcx", "rax");
     pop("r11");
     pop("rcx");
 }
@@ -1182,8 +1178,7 @@ static void emit_comma(Node *node) {
 
 static void emit_assign(Node *node) {
     SAVE;
-    if (node->left->ty->kind == KIND_STRUCT &&
-        node->left->ty->size > 8) {
+    if (is_large_struct(node->left->ty)) {
         emit_copy_struct(node->left, node->right);
     } else {
         emit_expr(node->right);
