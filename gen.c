@@ -223,7 +223,7 @@ static void maybe_emit_bitshift_save(Type *ty, char *addr) {
 
 static void emit_gload(Type *ty, char *label, int off) {
     SAVE;
-    if (ty->kind == KIND_ARRAY) {
+    if (ty->kind == KIND_ARRAY || is_large_struct(ty)) {
         if (off)
             emit("lea %s+%d(#rip), #rax", label, off);
         else

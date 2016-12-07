@@ -352,6 +352,15 @@ static void struct_local(void) {
     expect(5, sn.c);
 }
 
+struct abi_check g_s = { 10, 11, 12, 13, 14 };
+
+static void struct_global(void) {
+    struct abi_check_nest sn = g_s.z;
+    expect(12, sn.a);
+    expect(13, sn.b);
+    expect(14, sn.c);
+}
+
 void testmain() {
     print("struct");
     t1();
@@ -382,4 +391,5 @@ void testmain() {
     empty_struct();
     struct_call();
     struct_local();
+    struct_global();
 }
