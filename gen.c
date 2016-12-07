@@ -1438,7 +1438,7 @@ static int emit_regsave_area() {
     return REGAREA_SIZE;
 }
 
-static void push_func_params(Vector *params, int off) {
+static int push_func_params(Vector *params, int off) {
     int ireg = 0;
     int xreg = 0;
     int arg = 2;
@@ -1475,6 +1475,7 @@ static void push_func_params(Vector *params, int off) {
         }
         v->loff = off;
     }
+    return off;
 }
 
 static void emit_func_prologue(Node *func) {
@@ -1491,8 +1492,7 @@ static void emit_func_prologue(Node *func) {
         set_reg_nums(func->params);
         off -= emit_regsave_area();
     }
-    push_func_params(func->params, off);
-    off -= vec_len(func->params) * 8;
+    off = push_func_params(func->params, off);
 
     int localarea = 0;
     for (int i = 0; i < vec_len(func->localvars); i++) {

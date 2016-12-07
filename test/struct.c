@@ -310,6 +310,40 @@ static void empty_struct() {
     expect(0, sizeof(union tag16));
 }
 
+struct abi_check_nest {
+    int a;
+    int b;
+    int c;
+};
+
+struct abi_check {
+    int x;
+    int y;
+    struct abi_check_nest z;
+};
+
+static int struct_arg_func(struct abi_check s1, struct abi_check s2) {
+  int r = s1.x + s1.y + s1.z.a + s1.z.b + s1.z.c;
+  r -= s2.x + s2.y + s2.z.a + s2.z.b + s2.z.c;
+  expect(1, s1.x);
+  expect(2, s1.y);
+  expect(3, s1.z.a);
+  expect(4, s1.z.b);
+  expect(5, s1.z.c);
+  expect(6, s2.x);
+  expect(7, s2.y);
+  expect(8, s2.z.a);
+  expect(9, s2.z.b);
+  expect(10, s2.z.c);
+  return r;
+}
+
+static void struct_call(void) {
+    struct abi_check s1 = { 1, 2, 3, 4, 5 };
+    struct abi_check s2 = { 6, 7, 8, 9, 10 };
+    expect(-25, struct_arg_func(s1, s2));
+}
+
 void testmain() {
     print("struct");
     t1();
@@ -338,4 +372,5 @@ void testmain() {
     test_offsetof();
     flexible_member();
     empty_struct();
+    struct_call();
 }
