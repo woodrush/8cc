@@ -959,15 +959,13 @@ static int emit_args(Vector *vals) {
     int r = 0;
     for (int i = 0; i < vec_len(vals); i++) {
         Node *v = vec_get(vals, i);
-        if (v->ty->kind == KIND_STRUCT) {
-            emit_addr(v);
+        emit_expr(v);
+        if (is_large_struct(v->ty)) {
             r += push_struct(v->ty->size);
         } else if (is_flotype(v->ty)) {
-            emit_expr(v);
             push_xmm(0);
             r += 8;
         } else {
-            emit_expr(v);
             push("rax");
             r += 8;
         }
@@ -1090,7 +1088,29 @@ static void emit_return(Node *node) {
     SAVE;
     if (node->retval) {
         emit_expr(node->retval);
-        maybe_booleanize_retval(node->retval->ty);
+        if (is_large_struct(node->retval->ty)) {
+            push("rcx");
+            push("r11");
+            int i = 0;
+            emit("movq -8(#rbp), #rcx");
+            for (; i < node->retval->ty->size; i += 8) {
+                emit("movq %d(#rax), #r11", i);
+                emit("movq #r11, %d(#rcx)", i);
+            }
+            for (; i < node->retval->ty->size; i += 4) {
+                emit("movq %d(#rax), #r11", i);
+                emit("movq #r11, %d(#rcx)", i);
+            }
+            for (; i < node->retval->ty->size; i++) {
+                emit("movq %d(#rax), #r11", i);
+                emit("movq #r11, %d(#rcx)", i);
+            }
+            emit("mov #rcx, #rax");
+            pop("r11");
+            pop("rcx");
+        } else {
+            maybe_booleanize_retval(node->retval->ty);
+        }
     }
     emit_ret();
 }

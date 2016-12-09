@@ -795,9 +795,16 @@ static Node *read_alignof_operand() {
  * Function arguments
  */
 
-static Vector *read_func_args(Vector *params) {
+static Vector *read_func_args(Type *ty) {
+    Vector *params = ty->params;
     Vector *args = make_vector();
     int i = 0;
+    if (is_large_struct(ty->rettype)) {
+        Node *retval = ast_lvar(ty->rettype, make_tempname());
+        retval = ast_uop(AST_ADDR, make_ptr_type(ty->rettype), retval);
+        vec_push(args, retval);
+        i++;
+    }
     for (;;) {
         if (next_token(')')) break;
         Node *arg = conv(read_assignment_expr());
@@ -824,10 +831,10 @@ static Vector *read_func_args(Vector *params) {
 static Node *read_funcall(Node *fp) {
     if (fp->kind == AST_ADDR && fp->operand->kind == AST_FUNCDESG) {
         Node *desg = fp->operand;
-        Vector *args = read_func_args(desg->ty->params);
+        Vector *args = read_func_args(desg->ty);
         return ast_funcall(desg->ty, desg->fname, args);
     }
-    Vector *args = read_func_args(fp->ty->ptr->params);
+    Vector *args = read_func_args(fp->ty->ptr);
     return ast_funcptr_call(fp, args);
 }
 
@@ -2347,6 +2354,14 @@ static Node *read_funcdef() {
         if (vec_len(params) == 0)
             functype->hasva = false;
         read_oldstyle_param_type(params);
+        functype->params = param_types(params);
+    }
+    if (is_large_struct(functype->rettype)) {
+        Vector *new_params = make_vector();
+        vec_push(new_params,
+                 ast_lvar(make_ptr_type(functype->rettype), make_tempname()));
+        vec_append(new_params, params);
+        params = new_params;
         functype->params = param_types(params);
     }
     functype->isstatic = (sclass == S_STATIC);

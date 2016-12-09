@@ -322,6 +322,10 @@ struct abi_check {
     struct abi_check_nest z;
 };
 
+typedef struct abi_check_small {
+    int x;
+};
+
 static int struct_arg_func(struct abi_check s1, struct abi_check s2) {
   int r = s1.x + s1.y + s1.z.a + s1.z.b + s1.z.c;
   r -= s2.x + s2.y + s2.z.a + s2.z.b + s2.z.c;
@@ -361,6 +365,40 @@ static void struct_global(void) {
     expect(14, sn.c);
 }
 
+static struct abi_check return_struct_func(int x, int y, int a, int b, int c) {
+    struct abi_check s;
+    s.x = x;
+    s.y = y;
+    s.z.a = a;
+    s.z.b = b;
+    s.z.c = c;
+    return s;
+}
+
+static int sum_struct(int base, struct abi_check s) {
+    return base + s.x + s.y + s.z.a + s.z.b + s.z.c;
+}
+
+static void struct_return(void) {
+    struct abi_check s = return_struct_func(42, 43, 44, 45, 46);
+    expect(42, s.x);
+    expect(43, s.y);
+    expect(44, s.z.a);
+    expect(45, s.z.b);
+    expect(46, s.z.c);
+    expect(21, sum_struct(6, return_struct_func(1, 2, 3, 4, 5)));
+    expect(55, sum_struct(sum_struct(0, return_struct_func(1, 2, 3, 4, 5)),
+                          return_struct_func(6, 7, 8, 9, 10)));
+}
+
+static int struct_arg_func_small(int v, struct abi_check_small s) {
+    return v + s.x;
+}
+
+static void struct_call_small(void) {
+    expect(43, struct_arg_func_small(1, (struct abi_check_small){ 42 }));
+}
+
 void testmain() {
     print("struct");
     t1();
@@ -392,4 +430,6 @@ void testmain() {
     struct_call();
     struct_local();
     struct_global();
+    struct_return();
+    struct_call_small();
 }
