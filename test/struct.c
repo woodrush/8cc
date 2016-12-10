@@ -389,6 +389,7 @@ static void struct_return(void) {
     expect(21, sum_struct(6, return_struct_func(1, 2, 3, 4, 5)));
     expect(55, sum_struct(sum_struct(0, return_struct_func(1, 2, 3, 4, 5)),
                           return_struct_func(6, 7, 8, 9, 10)));
+    expect(99, return_struct_func(1, 2, 3, 99, 4).z.b);
 }
 
 static int struct_arg_func_small(int v, struct abi_check_small s) {

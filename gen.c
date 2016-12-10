@@ -405,6 +405,11 @@ static void emit_load_struct_ref(Node *struc, Type *field, int off) {
         emit_expr(struc->operand);
         emit_lload(field, "rax", field->offset + off);
         break;
+    case AST_FUNCALL: {
+        emit_expr(struc);
+        emit_lload(field, "rax", field->offset + off);
+        break;
+    }
     default:
         error("internal error: %s", node2s(struc));
     }
