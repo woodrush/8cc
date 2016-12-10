@@ -628,7 +628,7 @@ static void emit_addr(Node *node) {
 static void emit_copy_struct(Node *left, Node *right) {
     push("rcx");
     push("r11");
-    emit_addr(right);
+    emit_expr(right);
     emit("mov #rax, #rcx");
     emit_addr(left);
     copy_struct(left->ty->size, 0, "rcx", "rax");
