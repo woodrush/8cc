@@ -1937,12 +1937,24 @@ static Type *read_declarator_array(Type *basety) {
     return make_array_type(t, len);
 }
 
-static Type *read_declarator_func(Type *basety, Vector *param) {
+static Vector *param_types(Vector *params);
+
+static Type *read_declarator_func(Type *basety, Vector *params) {
     if (basety->kind == KIND_FUNC)
         error("function returning a function");
     if (basety->kind == KIND_ARRAY)
         error("function returning an array");
-    return read_func_param_list(param, basety);
+    Type *functype = read_func_param_list(params, basety);
+    if (is_large_struct(functype->rettype)) {
+        Vector *new_params = make_vector();
+        vec_push(new_params,
+                 ast_lvar(make_ptr_type(functype->rettype), make_tempname()));
+        if (params)
+            vec_append(new_params, params);
+        params = new_params;
+        functype->params = param_types(params);
+    }
+    return functype;
 }
 
 static Type *read_declarator_tail(Type *basety, Vector *params) {

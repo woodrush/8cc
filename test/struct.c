@@ -322,7 +322,7 @@ struct abi_check {
     struct abi_check_nest z;
 };
 
-typedef struct abi_check_small {
+struct abi_check_small {
     int x;
 };
 
@@ -400,6 +400,16 @@ static void struct_call_small(void) {
     expect(43, struct_arg_func_small(1, (struct abi_check_small){ 42 }));
 }
 
+static struct abi_check return_struct_func_decl(struct abi_check s, int x);
+
+static void struct_return_with_decl(void) {
+    expect(42, return_struct_func_decl((struct abi_check){}, 42).x);
+}
+
+static struct abi_check return_struct_func_decl(struct abi_check s, int x) {
+    return (struct abi_check){ x };
+}
+
 void testmain() {
     print("struct");
     t1();
@@ -433,4 +443,5 @@ void testmain() {
     struct_global();
     struct_return();
     struct_call_small();
+    struct_return_with_decl();
 }
