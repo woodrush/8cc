@@ -279,7 +279,7 @@ static void emit_pointer_arith(char kind, Node *left, Node *right) {
         push("A");
         emit("mov A, %d", left->ty->ptr->size);
         push("A");
-        emit_call_builtin("__builtin_mul");
+        emit_call_builtin("__elvm_builtin_mul");
         emit("add SP, 2");
         stackpos -= 3;
     }
@@ -421,17 +421,17 @@ static void emit_binop_int_arith(Node *node) {
             push("B");
             push("A");
             if (node->kind == '*')
-                emit_call_builtin("__builtin_mul");
+                emit_call_builtin("__elvm_builtin_mul");
             else if (node->kind == '/')
-                emit_call_builtin("__builtin_div");
+                emit_call_builtin("__elvm_builtin_div");
             else if (node->kind == '%')
-                emit_call_builtin("__builtin_mod");
+                emit_call_builtin("__elvm_builtin_mod");
             else if (node->kind == '^')
-                emit_call_builtin("__builtin_xor");
+                emit_call_builtin("__elvm_builtin_xor");
             else if (node->kind == OP_SAL)
-                emit_call_builtin("__builtin_shl");
+                emit_call_builtin("__elvm_builtin_shl");
             else if (node->kind == OP_SAR || node->kind == OP_SHR)
-                emit_call_builtin("__builtin_shr");
+                emit_call_builtin("__elvm_builtin_shr");
             emit("add SP, 2");
             stackpos -= 3;
             break;
@@ -830,15 +830,15 @@ static void emit_builtin_va_start(Node *node) {
 static bool maybe_emit_builtin(Node *node) {
 #if 0
     SAVE;
-    if (!strcmp("__builtin_return_address", node->fname)) {
+    if (!strcmp("__elvm_builtin_return_address", node->fname)) {
         emit_builtin_return_address(node);
         return true;
     }
-    if (!strcmp("__builtin_reg_class", node->fname)) {
+    if (!strcmp("__elvm_builtin_reg_class", node->fname)) {
         emit_builtin_reg_class(node);
         return true;
     }
-    if (!strcmp("__builtin_va_start", node->fname)) {
+    if (!strcmp("__elvm_builtin_va_start", node->fname)) {
         emit_builtin_va_start(node);
         return true;
     }
@@ -904,7 +904,7 @@ static void emit_func_call(Node *node) {
 
     if (!node->fname) {
         emit_call(node);
-    } else if (!strcmp(node->fname, "__builtin_dump")) {
+    } else if (!strcmp(node->fname, "__elvm_builtin_dump")) {
         emit("dump");
     } else if (!strcmp(node->fname, "exit")) {
         emit("exit");
@@ -1023,7 +1023,7 @@ static void emit_bitand(Node *node) {
     push("A");
     emit_expr(node->right);
     push("A");
-    emit_call_builtin("__builtin_and");
+    emit_call_builtin("__elvm_builtin_and");
     emit("add SP, 2");
     stackpos -= 3;
 }
@@ -1034,7 +1034,7 @@ static void emit_bitor(Node *node) {
     push("A");
     emit_expr(node->right);
     push("A");
-    emit_call_builtin("__builtin_or");
+    emit_call_builtin("__elvm_builtin_or");
     emit("add SP, 2");
     stackpos -= 3;
 }
@@ -1043,7 +1043,7 @@ static void emit_bitnot(Node *node) {
     SAVE;
     emit_expr(node->left);
     push("A");
-    emit_call_builtin("__builtin_not");
+    emit_call_builtin("__elvm_builtin_not");
     emit("add SP, 1");
     stackpos -= 2;
 }
