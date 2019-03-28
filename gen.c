@@ -24,6 +24,7 @@ static int is_main;
 static Map *source_files = &EMPTY_MAP;
 static Map *source_lines = &EMPTY_MAP;
 static char *last_loc = "";
+static char* current_func_name;
 
 static void emit_addr(Node *node);
 static void emit_expr(Node *node);
@@ -464,6 +465,7 @@ static void emit_load_convert(Type *to, Type *from) {
 
 static void emit_ret() {
     SAVE;
+    emit_nostack("#{pop:%s}", current_func_name);
     if (is_main) {
         emit("exit");
     } else {
@@ -1326,6 +1328,8 @@ static void emit_func_prologue(Node *func) {
     SAVE;
     emit(".text");
     emit_noindent("%s:", func->fname);
+    current_func_name = func->fname;
+    emit_nostack("#{push:%s}", func->fname);
 
     push("BP");
     emit("mov BP, SP");
