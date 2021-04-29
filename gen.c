@@ -1076,13 +1076,13 @@ static void emit_assign(Node *node) {
 
 static void emit_label_addr(Node *node) {
     SAVE;
-    emit("mov $%s, #rax", node->newlabel);
+    emit("mov A, %s", node->newlabel);
 }
 
 static void emit_computed_goto(Node *node) {
     SAVE;
     emit_expr(node->operand);
-    emit("jmp *#rax");
+    emit("jmp A");
 }
 
 static void emit_expr(Node *node) {
