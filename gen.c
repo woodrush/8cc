@@ -421,10 +421,10 @@ static void emit_binop_int_arith(Node *node) {
         int i = node->right->ival;
         while (i > 0) {
             if (i >= 8) {
-                emit("sre 0, A, &A");
+                emit("sre 0, A, 3");
                 i -= 8;
             } else if (i >= 1) {
-                emit("sru 0, A, &A");
+                emit("sru 0, A, 3");
                 i -= 1;
             }
         }
@@ -443,7 +443,7 @@ static void emit_binop_int_arith(Node *node) {
             emit("sub A, B");
             break;
         case '^':
-            emit("xor A, B, A");
+            emit("xor A, B, &A");
             break;
         case '*':
         case '/':
@@ -1052,14 +1052,21 @@ static void emit_lognot(Node *node) {
 }
 
 static void emit_bitand(Node *node) {
+    // SAVE;
+    // emit_expr(node->left);
+    // push("A");
+    // emit_expr(node->right);
+    // push("A");
+    // emit_call_builtin("__builtin_and");
+    // emit("add SP, 2");
+    // stackpos -= 3;
     SAVE;
     emit_expr(node->left);
     push("A");
     emit_expr(node->right);
-    push("A");
-    emit_call_builtin("__builtin_and");
-    emit("add SP, 2");
-    stackpos -= 3;
+    emit("mov B, A");
+    pop("A");
+    emit("ant A, B, &A");
 }
 
 static void emit_bitor(Node *node) {
