@@ -1052,6 +1052,9 @@ static void emit_lognot(Node *node) {
 }
 
 static void emit_bitand(Node *node) {
+    if (node->right->kind != '~') {
+        error("Error: The right hand side of & must start with ~");
+    }
     // SAVE;
     // emit_expr(node->left);
     // push("A");
@@ -1063,7 +1066,7 @@ static void emit_bitand(Node *node) {
     SAVE;
     emit_expr(node->left);
     push("A");
-    emit_expr(node->right);
+    emit_expr(node->right->left); // Evaluate the contents of ~
     emit("mov B, A");
     pop("A");
     emit("ant A, B, &A");
