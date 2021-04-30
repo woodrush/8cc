@@ -248,14 +248,21 @@ static void emit_lsave(Type *ty, int off) {
 
 static void do_emit_assign_deref(Type *ty, int off) {
     SAVE;
-    emit("mov C, A");
-    emit("load A, SP");
-    emit("mov B, A");
-    emit("mov A, C");
+    // emit("mov TEMP, A");
+    // emit("load B, SP");
+    // emit("mov B, A");
+    // emit("mov A, TEMP");
+
     if (off)
         emit("add A, %d", MOD24(off));
-    emit("store B, A");
+    // emit("store B, A");
+    emit("mnz 32768, $aSP, A");
+
     pop("A");
+
+
+    // emit("mnz 1, A, $aSP");
+    // pop("A");
 }
 
 static void emit_assign_deref(Node *var) {
@@ -264,6 +271,14 @@ static void emit_assign_deref(Node *var) {
     emit_expr(var->operand);
     do_emit_assign_deref(var->operand->ty->ptr, 0);
 }
+
+// stack:
+// {A}
+
+// reg:
+// A: operand
+// B: {A}
+// C: operand
 
 static void emit_call_builtin(char *fname);
 
@@ -400,6 +415,21 @@ static void emit_comp(char *inst, Node *node) {
 
 static void emit_binop_int_arith(Node *node) {
     SAVE;
+    if (node->kind == OP_SAR || node->kind == OP_SHR) {
+        // TODO: Check for the node type (assuming it is an immediate integer value)
+        emit_expr(node->left);
+        int i = node->right->ival;
+        while (i > 0) {
+            if (i >= 8) {
+                emit("sre 0, A, &A");
+                i -= 8;
+            } else if (i >= 1) {
+                emit("sru 0, A, &A");
+                i -= 1;
+            }
+        }
+        return;
+    }
     emit_expr(node->left);
     push("A");
     emit_expr(node->right);
@@ -412,10 +442,12 @@ static void emit_binop_int_arith(Node *node) {
         case '-':
             emit("sub A, B");
             break;
+        case '^':
+            emit("xor A, B, A");
+            break;
         case '*':
         case '/':
         case '%':
-        case '^':
         case OP_SAL:
         case OP_SAR:
         case OP_SHR:
@@ -427,8 +459,8 @@ static void emit_binop_int_arith(Node *node) {
                 emit_call_builtin("__builtin_div");
             else if (node->kind == '%')
                 emit_call_builtin("__builtin_mod");
-            else if (node->kind == '^')
-                emit_call_builtin("__builtin_xor");
+            // else if (node->kind == '^')
+            //     emit_call_builtin("__builtin_xor");
             else if (node->kind == OP_SAL)
                 emit_call_builtin("__builtin_shl");
             else if (node->kind == OP_SAR || node->kind == OP_SHR)
