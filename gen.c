@@ -124,6 +124,13 @@ static void push(char *reg) {
     emit("add D, -1");
     emit("store %s, D", reg);
     emit("mov SP, D");
+
+    // // assert(strcmp(reg, "D"));
+    // emit("addn SP, -1, &SP");
+    // emit("mnz 999, %s, SP", reg);
+    // // emit("add D, -1");
+    // // emit("store %s, D", reg);
+    // // emit("mov SP, D");
     stackpos += 1;
 }
 
@@ -248,21 +255,29 @@ static void emit_lsave(Type *ty, int off) {
 
 static void do_emit_assign_deref(Type *ty, int off) {
     SAVE;
-    // emit("mov TEMP, A");
-    // emit("load B, SP");
-    // emit("mov B, A");
-    // emit("mov A, TEMP");
-
+    emit("mov C, A");
+    emit("load A, SP");
+    emit("mov B, A");
+    emit("mov A, C");
     if (off)
         emit("add A, %d", MOD24(off));
-    // emit("store B, A");
-    emit("mnz 32768, $aSP, A");
-
+    emit("store B, A");
     pop("A");
+    // // emit("mov TEMP, A");
+    // emit("load B, SP");
+    // // emit("mov B, A");
+    // // emit("mov A, TEMP");
 
+    // if (off)
+    //     emit("add A, %d", MOD24(off));
+    // emit("store B, A");
+    // // emit("mnz 32768, $aSP, A");
 
-    // emit("mnz 1, A, $aSP");
     // pop("A");
+
+
+    // // emit("mnz 1, A, $aSP");
+    // // pop("A");
 }
 
 static void emit_assign_deref(Node *var) {
@@ -421,10 +436,10 @@ static void emit_binop_int_arith(Node *node) {
         int i = node->right->ival;
         while (i > 0) {
             if (i >= 8) {
-                emit("sre 0, A, 3");
+                emit("sre 0, A, &A");
                 i -= 8;
             } else if (i >= 1) {
-                emit("sru 0, A, 3");
+                emit("sru 0, A, &A");
                 i -= 1;
             }
         }
@@ -999,8 +1014,12 @@ static void emit_ternary(Node *node) {
 
 static void emit_goto(Node *node) {
     SAVE;
-    assert(node->newlabel);
-    emit_jmp(node->newlabel);
+    assert(node->label || node->newlabel);
+    if (node->label) {
+        emit_jmp(node->label);
+    } else {
+        emit_jmp(node->newlabel);
+    }
 }
 
 static void emit_return(Node *node) {
@@ -1118,7 +1137,12 @@ static void emit_assign(Node *node) {
 
 static void emit_label_addr(Node *node) {
     SAVE;
-    emit("mov A, %s", node->newlabel);
+    assert(node->label || node->newlabel);
+    if (node->label) {
+        emit("mov A, %s", node->label);
+    } else {
+        emit("mov A, %s", node->newlabel);
+    }
 }
 
 static void emit_computed_goto(Node *node) {
@@ -1152,7 +1176,9 @@ static void emit_expr(Node *node) {
         return;
     case AST_GOTO:    emit_goto(node); return;
     case AST_LABEL:
-        if (node->newlabel)
+        if (node->label)
+            emit_label(node->label);
+        else if (node->newlabel)
             emit_label(node->newlabel);
         return;
     case AST_RETURN:  emit_return(node); return;
@@ -1242,10 +1268,16 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
     case KIND_LONG:
     case KIND_LLONG:
     case KIND_PTR:
-        if (val->kind == OP_LABEL_ADDR) {
-            emit(".long %s", val->newlabel);
+        // if (val->kind == OP_LABEL_ADDR) {
+        //     emit(".long %s", val->newlabel);
+            if (val->kind == OP_LABEL_ADDR) {
+                if (val->label) {
+                    emit_jmp(val->label);
+                } else {
+                    emit_jmp(val->newlabel);
+                }
+            }
             break;
-        }
         bool is_char_ptr = (val->operand->ty->kind == KIND_ARRAY && val->operand->ty->ptr->kind == KIND_CHAR);
         if (is_char_ptr) {
             emit_data_charptr(val->operand->sval, depth);
