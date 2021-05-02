@@ -1071,24 +1071,23 @@ static void emit_lognot(Node *node) {
 }
 
 static void emit_bitand(Node *node) {
-    if (node->right->kind != '~') {
-        error("Error: The right hand side of & must start with ~");
-    }
-    // SAVE;
-    // emit_expr(node->left);
-    // push("A");
-    // emit_expr(node->right);
-    // push("A");
-    // emit_call_builtin("__builtin_and");
-    // emit("add SP, 2");
-    // stackpos -= 3;
     SAVE;
-    emit_expr(node->left);
-    push("A");
-    emit_expr(node->right->left); // Evaluate the contents of ~
-    emit("mov B, A");
-    pop("A");
-    emit("ant A, B, &A");
+    if (node->right && node->right->kind == '~') {
+        emit_expr(node->left);
+        push("A");
+        emit_expr(node->right->left); // Evaluate the contents of ~
+        emit("mov B, A");
+        pop("A");
+        emit("ant A, B, &A");
+    } else {
+        emit_expr(node->left);
+        push("A");
+        emit_expr(node->right);
+        emit("mov B, A");
+        pop("A");
+        emit("ant 65535, B, &B");
+        emit("ant A, B, &A");
+    }
 }
 
 static void emit_bitor(Node *node) {
@@ -1096,19 +1095,18 @@ static void emit_bitor(Node *node) {
     emit_expr(node->left);
     push("A");
     emit_expr(node->right);
-    push("A");
-    emit_call_builtin("__builtin_or");
-    emit("add SP, 2");
-    stackpos -= 3;
+    emit("mov B, A");
+    pop("A");
+    emit("ant 65535, B, &C");
+    emit("ant A, C, &C");
+    emit("xor B, C, &C");
+    emit("xor A, C, &A");
 }
 
 static void emit_bitnot(Node *node) {
     SAVE;
     emit_expr(node->left);
-    push("A");
-    emit_call_builtin("__builtin_not");
-    emit("add SP, 1");
-    stackpos -= 2;
+    emit("ant 65535, A, &A");
 }
 
 static void emit_cast(Node *node) {
