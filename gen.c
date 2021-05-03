@@ -1266,17 +1266,15 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
     case KIND_LONG:
     case KIND_LLONG:
     case KIND_PTR:
-        // if (val->kind == OP_LABEL_ADDR) {
-        //     emit(".long %s", val->newlabel);
-            if (val->kind == OP_LABEL_ADDR) {
-                if (val->label) {
-                    emit_jmp(val->label);
-                } else {
-                    emit_jmp(val->newlabel);
-                }
+        if (val->kind == OP_LABEL_ADDR) {
+            if (val->label) {
+                emit(".long %s", val->label);
+            } else {
+                emit(".long %s", val->newlabel);
             }
             break;
-        bool is_char_ptr = (val->operand->ty->kind == KIND_ARRAY && val->operand->ty->ptr->kind == KIND_CHAR);
+        }
+        bool is_char_ptr = val->operand && val->operand->ty && val->operand->ty->ptr && (val->operand->ty->kind == KIND_ARRAY && val->operand->ty->ptr->kind == KIND_CHAR);
         if (is_char_ptr) {
             emit_data_charptr(val->operand->sval, depth);
         } else if (val->kind == AST_GVAR) {
