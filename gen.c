@@ -1274,10 +1274,7 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
             }
             break;
         }
-        bool is_char_ptr = val->operand && val->operand->ty && val->operand->ty->ptr && (val->operand->ty->kind == KIND_ARRAY && val->operand->ty->ptr->kind == KIND_CHAR);
-        if (is_char_ptr) {
-            emit_data_charptr(val->operand->sval, depth);
-        } else if (val->kind == AST_GVAR) {
+        if (val->kind == AST_GVAR) {
             emit(".long %s", val->glabel);
         } else {
             Node *base = NULL;
@@ -1295,6 +1292,13 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
 #if 1
             if (v * ty->ptr->size)
                 error("TODO: fix! %d %d", v, ty->ptr->size);
+
+            bool is_char_ptr = val && val->operand && val->operand->ty && val->operand->ty->ptr && (val->operand->ty->kind == KIND_ARRAY && val->operand->ty->ptr->kind == KIND_CHAR);
+            if (is_char_ptr) {
+                emit_data_charptr(val->operand->sval, depth);
+                break;
+            }
+
             emit(".long %s", base->glabel);
 #else
             emit(".long %s+%u", base->glabel, v * ty->ptr->size);
