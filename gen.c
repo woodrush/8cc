@@ -59,6 +59,10 @@ static void pop_function(void *ignore) {
 #define SAVE
 #endif
 
+static char* make_var_label() {
+    return format("__%s", make_label());
+}
+
 static char *get_caller_list() {
     Buffer *b = make_buffer();
     for (int i = 0; i < vec_len(functions); i++) {
@@ -716,7 +720,8 @@ static void emit_literal(Node *node) {
     }
     case KIND_ARRAY: {
         if (!node->slabel) {
-            node->slabel = make_label();
+            // node->slabel = make_label();
+            node->slabel = make_var_label();
             emit_noindent(".data");
             emit_label(node->slabel);
             emit(".string \"%s\"", quote_cstring_len(node->sval, node->ty->size - 1));
@@ -1085,7 +1090,7 @@ static void emit_bitand(Node *node) {
         emit_expr(node->right);
         emit("mov B, A");
         pop("A");
-        emit("ant 65535, B, &B");
+        emit("xor B, 65535, &B");
         emit("ant A, B, &A");
     }
 }
@@ -1097,7 +1102,7 @@ static void emit_bitor(Node *node) {
     emit_expr(node->right);
     emit("mov B, A");
     pop("A");
-    emit("ant 65535, B, &C");
+    emit("xor B, 65535, &C");
     emit("ant A, C, &C");
     emit("xor B, C, &C");
     emit("xor A, C, &A");
@@ -1106,7 +1111,7 @@ static void emit_bitor(Node *node) {
 static void emit_bitnot(Node *node) {
     SAVE;
     emit_expr(node->left);
-    emit("ant 65535, A, &A");
+    emit("xor A, 65535, &A");
 }
 
 static void emit_cast(Node *node) {
@@ -1221,7 +1226,8 @@ static void emit_padding(Node *node, int off) {
 static void emit_data_addr(Node *operand, int depth) {
     switch (operand->kind) {
     case AST_LVAR: {
-        char *label = make_label();
+        // char *label = make_label();
+        char *label = make_var_label();
         emit(".data %d", depth + 1);
         emit_label(label);
         do_emit_data(operand->lvarinit, operand->ty->size, 0, depth + 1);
@@ -1238,7 +1244,8 @@ static void emit_data_addr(Node *operand, int depth) {
 }
 
 static void emit_data_charptr(char *s, int depth) {
-    char *label = make_label();
+    // char *label = make_label();
+    char *label = make_var_label();
     emit(".data %d", depth + 1);
     emit_label(label);
     emit(".string \"%s\"", quote_cstring(s));
@@ -1269,6 +1276,8 @@ static void emit_data_primtype(Type *ty, Node *val, int depth) {
         if (val->kind == OP_LABEL_ADDR) {
             if (val->label) {
                 emit(".long %s", val->label);
+            } else if (val->slabel){
+                emit(".long %s", val->slabel);
             } else {
                 emit(".long %s", val->newlabel);
             }
